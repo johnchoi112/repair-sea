@@ -57,8 +57,8 @@
   .modal-table { width:100%; border-collapse: collapse; table-layout: fixed; }
   .modal-table th, .modal-table td { border:1px solid #eee; padding:6px 8px; font-size:.9rem; text-align:center; }
   .modal-table th { width: 110px;
-                   background:#cfe8ff;
-                   color: #000;
+                   background:#cfe8ff; /* 파란 배경 */
+                   color: #000;        /* 검정 글씨 */
                   }
   .modal-input { width: 100%; padding:6px 8px; border:1px solid #ddd; border-radius:6px; }
   .modal-footer { text-align:center; margin-top:10px; }
@@ -156,7 +156,7 @@ const STORAGE_KEY = "seaRepairTable_v3";
 
 const tbody = document.getElementById("tableBody");
 const checkAll = document.getElementById("checkAll");
-document.getElementById("btnAdd").addEventListener("click", addRow);
+document.getElementById("btnAdd").addEventListener("click", () => addRow());
 document.getElementById("btnDelete").addEventListener("click", deleteSelected);
 document.getElementById("btnOpen").addEventListener("click", openModal);
 
@@ -268,7 +268,7 @@ function serialize() {
   tbody.querySelectorAll("tr").forEach(r => {
     const cells = [];
     Array.from(r.cells).forEach((c, i) => {
-      if (i === 0) { cells.push(null); return; } // checkbox skip
+      if (i === 0) return; /* checkbox column: skip, do NOT push placeholder */
       const input = c.querySelector("input");
       const sel = c.querySelector("select");
       if (input) cells.push(input.value);
@@ -282,22 +282,24 @@ function serialize() {
 
 function deserialize(rows) {
   tbody.innerHTML = "";
-  (rows || []).forEach(cells => {
-    addRow(undefined, true); // 복원 중 저장 스킵
+  if (!rows || rows.length === 0) { attachAllListeners(); return; }
+  rows.forEach(cells => {
+    addRow(null, true); // don't save while rebuilding
     const tr = tbody.lastElementChild;
-    Array.from(tr.cells).forEach((c, i) => {
-      if (i === 0) return;
+    let j = 0; // index for data cells (since checkbox column is skipped in data)
+    for (let i = 0; i < tr.cells.length; i++) {
+      if (i === 0) continue; // skip checkbox cell
+      const c = tr.cells[i];
       const input = c.querySelector("input");
       const sel = c.querySelector("select");
-      const v = cells[i-1] ?? "";
+      const v = cells[j++] ?? "";
       if (input) input.value = v;
       else if (sel) sel.value = v;
       else c.innerText = v;
-    });
+    }
   });
-  if (!rows || rows.length === 0) attachAllListeners(); // initial row
-  // 복원 완료 상태 저장
-  saveTable();
+  attachAllListeners();
+  saveTable(); // persist normalized structure
 }
 
 function saveTable() {
