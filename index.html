@@ -204,15 +204,17 @@
             background-color: rgba(0, 0, 0, 0.5);
         }
 
+        /* ======= MODAL SIZE/FLOW FIXES ======= */
         .modal-content {
             background-color: white;
             margin: 5% auto;
             padding: 20px;
             border-radius: 12px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
+
+            width: 420px;
+            max-width: calc(100vw - 40px);
+            overflow: hidden;
+
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             animation: modalSlideIn 0.3s ease-out;
         }
@@ -230,43 +232,47 @@
 
         .modal-header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             color: #333;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 600;
         }
 
         .modal-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
+            table-layout: fixed;
+            margin-bottom: 12px;
         }
 
         .modal-table th, .modal-table td {
             padding: 8px 6px;
             border: 1px solid #ddd;
             text-align: center;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         .modal-table th {
             background-color: #f5f5f5;
             font-weight: 600;
-            width: 120px;
+            width: 110px;
+            white-space: nowrap;
         }
 
         .modal-table td {
-            width: calc(100% - 120px);
+            min-width: 0;
         }
 
         .modal-input {
+            display: block;
             width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
             padding: 6px;
             border: 1px solid #ddd;
             border-radius: 4px;
             text-align: center;
             font-size: 0.9rem;
-            box-sizing: border-box;
         }
 
         .modal-input:focus {
@@ -275,11 +281,11 @@
 
         .modal-footer {
             text-align: center;
-            margin-top: 15px;
+            margin-top: 12px;
         }
 
         .modal-btn {
-            padding: 10px 20px;
+            padding: 10px 18px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
@@ -321,7 +327,8 @@
             
             .modal-content {
                 padding: 15px;
-                max-width: 90%;
+                width: calc(100vw - 40px);
+                max-width: calc(100vw - 40px);
             }
         }
     </style>
@@ -360,7 +367,6 @@
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    <!-- 초기 데이터 행 -->
                     <tr>
                         <td class="checkbox-cell"><input type="checkbox"></td>
                         <td><input type="date"></td>
@@ -441,11 +447,9 @@
     </div>
 
     <script>
-        // 행 추가 함수
         function addRow() {
             const tbody = document.getElementById('tableBody');
             const newRow = tbody.insertRow();
-            
             newRow.innerHTML = `
                 <td class="checkbox-cell"><input type="checkbox"></td>
                 <td><input type="date"></td>
@@ -473,82 +477,56 @@
             `;
         }
 
-        // 선택된 행 삭제 함수
         function deleteSelectedRows() {
             const tbody = document.getElementById('tableBody');
             const checkboxes = tbody.querySelectorAll('input[type="checkbox"]:checked');
-            
-            // 역순으로 삭제 (인덱스 변경 방지)
             for (let i = checkboxes.length - 1; i >= 0; i--) {
                 const row = checkboxes[i].closest('tr');
                 row.remove();
             }
         }
 
-        // 전체 체크박스 토글
         function toggleAllCheckboxes(masterCheckbox) {
             const tbody = document.getElementById('tableBody');
             const checkboxes = tbody.querySelectorAll('input[type="checkbox"]');
-            
             checkboxes.forEach(checkbox => {
                 checkbox.checked = masterCheckbox.checked;
             });
         }
 
-        // 상태 업데이트 함수
         function updateStatus(selectElement) {
             const row = selectElement.closest('tr');
             const statusCell = row.cells[9];
             const status = selectElement.value;
-            
-            // 기존 클래스 제거
             statusCell.className = '';
-            
-            // 상태에 따른 클래스 추가
             if (status) {
-                statusCell.classList.add(`status-${status.replace(/\s+/g, '')}`);
+                statusCell.classList.add(`status-${status.replace(/\\s+/g, '')}`);
             }
         }
 
-        // 테이블 필터 함수
         function filterTable(columnIndex, filterValue) {
             const table = document.getElementById('mainTable');
             const rows = table.getElementsByTagName('tbody')[0].rows;
-            
             for (let i = 0; i < rows.length; i++) {
                 const cell = rows[i].cells[columnIndex];
                 const cellText = cell.textContent || cell.innerText;
-                
-                if (cellText.toLowerCase().indexOf(filterValue.toLowerCase()) > -1) {
-                    rows[i].style.display = '';
-                } else {
-                    rows[i].style.display = 'none';
-                }
+                rows[i].style.display = cellText.toLowerCase().indexOf(filterValue.toLowerCase()) > -1 ? '' : 'none';
             }
         }
 
-        // 모달 열기 함수
         function openRegisterModal() {
             document.getElementById('registerModal').style.display = 'block';
-            // 모달 열릴 때 기존 데이터 초기화
+            document.body.style.overflow = 'hidden';
             const inputs = document.querySelectorAll('#registerModal input');
-            inputs.forEach(input => {
-                if (input.type === 'date') {
-                    input.value = '';
-                } else {
-                    input.value = '';
-                }
-            });
+            inputs.forEach(input => input.value = '');
         }
 
-        // 모달 닫기 함수
         function closeRegisterModal() {
             document.getElementById('registerModal').style.display = 'none';
+            document.body.style.overflow = '';
         }
 
-        // 접수 확인 함수
         function confirmRegister() {
-            // 입력값 가져오기
             const receiptDate = document.getElementById('modalReceiptDate').value;
             const company = document.getElementById('modalCompany').value;
             const partNo = document.getElementById('modalPartNo').value;
@@ -559,19 +537,17 @@
             const contact = document.getElementById('modalContact').value;
             const note = document.getElementById('modalNote').value;
 
-            // 테이블에 새로운 행 추가
             const tbody = document.getElementById('tableBody');
             const newRow = tbody.insertRow();
-            
             newRow.innerHTML = `
                 <td class="checkbox-cell"><input type="checkbox"></td>
                 <td>${receiptDate ? `<input type="date" value="${receiptDate}">` : '<input type="date">'}</td>
                 <td><input type="date"></td>
-                <td>${company}</td>
-                <td>${partNo}</td>
-                <td>${partName}</td>
-                <td>${spec}</td>
-                <td>${symptom}</td>
+                <td contenteditable="true">${company}</td>
+                <td contenteditable="true">${partNo}</td>
+                <td contenteditable="true">${partName}</td>
+                <td contenteditable="true">${spec}</td>
+                <td contenteditable="true">${symptom}</td>
                 <td></td>
                 <td class="status-접수완료">
                     <select onchange="updateStatus(this)">
@@ -589,11 +565,9 @@
                 <td>${note}</td>
             `;
 
-            // 모달 닫기
             closeRegisterModal();
         }
 
-        // 모달 외부 클릭 시 닫기
         window.onclick = function(event) {
             const modal = document.getElementById('registerModal');
             if (event.target === modal) {
@@ -601,14 +575,12 @@
             }
         }
 
-        // ESC 키로 모달 닫기
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
                 closeRegisterModal();
             }
         });
 
-        // 입력 필드에 maxlength 적용
         document.addEventListener('input', function(e) {
             if (e.target.hasAttribute('maxlength')) {
                 const maxLength = parseInt(e.target.getAttribute('maxlength'));
