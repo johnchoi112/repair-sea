@@ -1,350 +1,329 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SEA 수리&재가공 현황</title>
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background-color:#f5f7fa; padding:20px; }
-    .container { max-width:2000px; margin:0 auto; }
-    .header { text-align:center; margin-bottom:30px; padding:20px;
-      background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-      border-radius:15px; box-shadow:0 8px 32px rgba(0,0,0,.1); color:#fff;}
-    .header h1 { font-size:2.5rem; font-weight:700; text-shadow:2px 2px 4px rgba(0,0,0,.3); }
-    .controls { display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap; }
-    .btn { padding:12px 24px; border:none; border-radius:8px; cursor:pointer; font-weight:600;
-      transition:all .3s ease; box-shadow:0 4px 15px rgba(0,0,0,.1); }
-    .btn:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.15); }
-    .btn-add { background:linear-gradient(135deg,#4CAF50 0%,#45a049 100%); color:#fff; }
-    .btn-delete { background:linear-gradient(135deg,#f44336 0%,#da190b 100%); color:#fff; }
-    .btn-register { background:linear-gradient(135deg,#2196F3 0%,#1976D2 100%); color:#fff; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SEA 수리&재가공 현황 (localStorage 저장/복원)</title>
+<style>
+  * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+  body { background: #f5f7fa; margin: 0; padding: 20px; }
+  .container { max-width: 2000px; margin: 0 auto; }
+  .header { text-align: center; padding: 20px; margin-bottom: 18px;
+            border-radius: 15px; color:#fff;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 8px 32px rgba(0,0,0,.1); }
+  .header h1 { margin: 0; font-size: 2.1rem; font-weight: 800; letter-spacing: .02em; }
 
-    .table-container { background:#fff; border-radius:15px; box-shadow:0 8px 32px rgba(0,0,0,.1); overflow:hidden; }
-    table { width:100%; border-collapse:collapse; table-layout:auto; }
-    th, td { padding:12px 8px; text-align:center; border:1px solid #e0e0e0; }
-    th { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; font-weight:600; position:sticky; top:0; z-index:10; font-size:.85rem; }
-    tr:nth-child(even){ background:#f8f9fa; }
-    tr:hover{ background:#eaf2ff; }
+  .controls { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+  .btn { padding: 10px 16px; border:0; border-radius:8px; color:#fff; cursor:pointer; font-weight:700;
+         box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+  .btn-add { background: linear-gradient(135deg, #4CAF50, #45a049); }
+  .btn-del { background: linear-gradient(135deg, #f44336, #da190b); }
+  .btn-reg { background: linear-gradient(135deg, #2196F3, #1976D2); }
 
-    input[type="date"], select { width:100%; padding:6px; border:1px solid #ddd; border-radius:4px; text-align:center; font-size:.85rem; }
-    [contenteditable]{ padding:6px; border:1px solid transparent; border-radius:4px; text-align:center; outline:none; transition:border-color .3s ease; font-size:.85rem; word-break:break-all; min-height:20px; }
-    [contenteditable]:hover{ border-color:#ddd; }
-    [contenteditable]:focus{ border-color:#2196F3; background-color:#fff3e0; }
+  .table-container { background:#fff; border-radius:15px; box-shadow:0 8px 32px rgba(0,0,0,.08); overflow:hidden; }
+  table { width: 100%; border-collapse: collapse; table-layout: auto; }
+  th, td { border:1px solid #e0e0e0; text-align:center; padding:10px 6px; }
+  thead th { position: sticky; top:0; z-index:10; color:#fff;
+             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  tr:nth-child(even) { background:#fafafa; }
+  tr:hover { background:#f1f6ff; }
 
-    .status-접수완료{ background:#e0e0e0; color:#616161; }
-    .status-수리중{ background:#bbdefb; color:#1976d2; }
-    .status-무상수리완료{ background:#c8e6c9; color:#388e3c; }
-    .status-유상수리완료{ background:#ffe0b2; color:#ef6c00; }
+  input[type="date"], select { width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:6px; font-size:.9rem; }
+  .filter-input { width: 100%; padding: 5px 6px; border:1px solid #ddd; border-radius:6px; margin-top:6px; font-size:.8rem; }
 
-    .filter-input{ width:100%; padding:5px; border:1px solid #ddd; border-radius:4px; text-align:center; margin-bottom:3px; font-size:.75rem; }
-    .checkbox-cell { width:30px; }
-    .checkbox-cell input{ width:18px; height:18px; cursor:pointer; }
+  [contenteditable] { padding:6px; min-height:24px; border:1px solid transparent; border-radius:6px; }
+  [contenteditable]:hover { border-color:#e3e3e3; }
+  [contenteditable]:focus { outline:0; border-color:#2196F3; background:#fff3e0; }
 
-    /* Modal */
-    .modal{ display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.5); }
-    .modal-content{ background:#fff; margin:5% auto; padding:20px; border-radius:12px; width:420px; max-width:calc(100vw - 40px); overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.3); animation:modalSlideIn .3s ease-out; }
-    @keyframes modalSlideIn{ from{ transform:translateY(-50px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
-    .modal-header{ text-align:center; margin-bottom:15px; color:#333; font-size:1.1rem; font-weight:600; }
-    .modal-table{ width:100%; border-collapse:collapse; table-layout:fixed; margin-bottom:12px; }
-    .modal-table th, .modal-table td{ padding:8px 6px; border:1px solid #ddd; text-align:center; font-size:.85rem; }
-    .modal-table th{ background:#f5f5f5; font-weight:600; width:110px; white-space:nowrap; }
-    .modal-table td{ min-width:0; }
-    .modal-input{ display:block; width:100%; max-width:100%; box-sizing:border-box; padding:6px; border:1px solid #ddd; border-radius:4px; text-align:center; font-size:.9rem; }
-    .modal-input:focus{ outline:2px solid #2196F3; }
-    .modal-footer{ text-align:center; margin-top:12px; }
-    .modal-btn{ padding:10px 18px; border:none; border-radius:6px; cursor:pointer; font-weight:600; margin:0 8px; transition:all .3s ease; font-size:.9rem; }
-    .modal-btn-confirm{ background:linear-gradient(135deg,#4CAF50 0%,#45a049 100%); color:#fff; }
-    .modal-btn-cancel{ background:linear-gradient(135deg,#f44336 0%,#da190b 100%); color:#fff; }
-    .modal-btn:hover{ transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,.2); }
+  /* 너비 튜닝: min-width만 주어 자동 레이아웃 유지 */
+  /* 1 체크박스, 2 접수일자, 3 발송일자, 4 거래처, 5 품번, 6 품명, 7 규격, 8 증상, 9 진단결과,
+     10 상태, 11 수리담당자, 12 연락처, 13 수리완료일, 14 수리비용, 15 비고 */
+  #mainTable th:nth-child(4),  #mainTable td:nth-child(4)  { min-width: 170px; } /* 거래처 */
+  #mainTable th:nth-child(5),  #mainTable td:nth-child(5)  { min-width: 150px; } /* 품번 */
+  #mainTable th:nth-child(6),  #mainTable td:nth-child(6)  { min-width: 170px; } /* 품명 */
+  #mainTable th:nth-child(7),  #mainTable td:nth-child(7)  { min-width: 150px; } /* 규격 */
+  #mainTable th:nth-child(10), #mainTable td:nth-child(10) { min-width: 200px; } /* 상태 - 더 넓게 */
+  #mainTable th:nth-child(11), #mainTable td:nth-child(11) { min-width: 140px; } /* 수리담당자 - 약간 작게 */
+  #mainTable th:nth-child(12), #mainTable td:nth-child(12) { min-width: 160px; } /* 연락처 */
+  #mainTable th:nth-child(14), #mainTable td:nth-child(14) { min-width: 120px; } /* 수리비용 - 약간 작게 */
+  #mainTable th:nth-child(15), #mainTable td:nth-child(15) { min-width: 160px; } /* 비고 */
 
-    /* Gentle min-widths for wider columns */
-    #mainTable th:nth-child(4), #mainTable td:nth-child(4){ min-width:160px; }   /* 거래처 */
-    #mainTable th:nth-child(5), #mainTable td:nth-child(5){ min-width:150px; }   /* 품번 */
-    #mainTable th:nth-child(6), #mainTable td:nth-child(6){ min-width:150px; }   /* 품명 */
-    #mainTable th:nth-child(7), #mainTable td:nth-child(7){ min-width:140px; }   /* 규격 */
-    #mainTable th:nth-child(11), #mainTable td:nth-child(11){ min-width:160px; } /* 수리담당자 */
-    #mainTable th:nth-child(12), #mainTable td:nth-child(12){ min-width:160px; } /* 연락처 */
-    #mainTable th:nth-child(14), #mainTable td:nth-child(14){ min-width:140px; } /* 수리비용 */
-    #mainTable th:nth-child(15), #mainTable td:nth-child(15){ min-width:160px; } /* 비고 */
-  </style>
+  /* 모달 */
+  .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; }
+  .modal-content { width: 420px; max-width: calc(100vw - 40px); margin: 5% auto; background:#fff; border-radius:12px;
+                   padding: 16px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .modal-header { text-align:center; font-weight:800; margin-bottom:12px; }
+  .modal-table { width:100%; border-collapse: collapse; table-layout: fixed; }
+  .modal-table th, .modal-table td { border:1px solid #eee; padding:6px 8px; font-size:.9rem; text-align:center; }
+  .modal-table th { width: 110px; background:#fafafa; }
+  .modal-input { width: 100%; padding:6px 8px; border:1px solid #ddd; border-radius:6px; }
+  .modal-footer { text-align:center; margin-top:10px; }
+  .modal-btn { padding:9px 16px; border:0; border-radius:6px; cursor:pointer; color:#fff; font-weight:700; }
+  .ok { background: linear-gradient(135deg, #4CAF50, #45a049); }
+  .cancel { background: linear-gradient(135deg, #f44336, #da190b); margin-left:6px; }
+</style>
 </head>
 <body>
-  <div class="container">
-    <div class="header"><h1>SEA 수리&재가공 현황</h1></div>
+<div class="container">
+  <div class="header"><h1>SEA 수리&재가공 현황</h1></div>
 
-    <div class="controls">
-      <button class="btn btn-add" onclick="addRow()">[행 추가]</button>
-      <button class="btn btn-delete" onclick="deleteSelectedRows()">[행 삭제]</button>
-      <button class="btn btn-register" onclick="openRegisterModal()">[접수]</button>
-    </div>
-
-    <div class="table-container">
-      <table id="mainTable">
-        <thead>
-          <tr>
-            <th><input type="checkbox" onclick="toggleAllCheckboxes(this)"></th>
-            <th>접수일자<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(1, this.value)"></th>
-            <th>발송일자<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(2, this.value)"></th>
-            <th>거래처<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(3, this.value)"></th>
-            <th>품번<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(4, this.value)"></th>
-            <th>품명<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(5, this.value)"></th>
-            <th>규격<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(6, this.value)"></th>
-            <th>증상<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(7, this.value)"></th>
-            <th>진단 결과<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(8, this.value)"></th>
-            <th>상태<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(9, this.value)"></th>
-            <th>수리 담당자<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(10, this.value)"></th>
-            <th>연락처<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(11, this.value)"></th>
-            <th>수리완료일<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(12, this.value)"></th>
-            <th>수리비용<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(13, this.value)"></th>
-            <th>비고<br><input type="text" class="filter-input" placeholder="필터" onkeyup="filterTable(14, this.value)"></th>
-          </tr>
-        </thead>
-        <tbody id="tableBody">
-          <tr>
-            <td class="checkbox-cell"><input type="checkbox"></td>
-            <td><input type="date"></td>
-            <td><input type="date"></td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-            <td>
-              <select onchange="updateStatus(this)">
-                <option value="">선택</option>
-                <option value="접수완료">접수완료</option>
-                <option value="수리중">수리 중</option>
-                <option value="무상수리완료">무상수리완료</option>
-                <option value="유상수리완료">유상수리완료</option>
-              </select>
-            </td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-            <td><input type="date"></td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  <div class="controls">
+    <button class="btn btn-add" id="btnAdd">[행 추가]</button>
+    <button class="btn btn-del" id="btnDelete">[행 삭제]</button>
+    <button class="btn btn-reg" id="btnOpen">[접수]</button>
   </div>
 
-  <!-- 접수 모달 -->
-  <div id="registerModal" class="modal">
-    <div class="modal-content">
-      <h2 class="modal-header">신규 접수 등록</h2>
-      <table class="modal-table">
-        <tr><th>접수일자</th><td><input type="date" class="modal-input" id="modalReceiptDate"></td></tr>
-        <tr><th>거래처</th><td><input type="text" class="modal-input" id="modalCompany" maxlength="20"></td></tr>
-        <tr><th>품번</th><td><input type="text" class="modal-input" id="modalPartNo" maxlength="20"></td></tr>
-        <tr><th>품명</th><td><input type="text" class="modal-input" id="modalPartName" maxlength="20"></td></tr>
-        <tr><th>규격</th><td><input type="text" class="modal-input" id="modalSpec" maxlength="20"></td></tr>
-        <tr><th>증상</th><td><input type="text" class="modal-input" id="modalSymptom" maxlength="20"></td></tr>
-        <tr><th>수리담당자</th><td><input type="text" class="modal-input" id="modalRepairer" maxlength="20"></td></tr>
-        <tr><th>연락처</th><td><input type="text" class="modal-input" id="modalContact" maxlength="20"></td></tr>
-        <tr><th>비고</th><td><input type="text" class="modal-input" id="modalNote" maxlength="20"></td></tr>
-      </table>
-      <div class="modal-footer">
-        <button class="modal-btn modal-btn-confirm" onclick="confirmRegister()">[확인]</button>
-        <button class="modal-btn modal-btn-cancel" onclick="closeRegisterModal()">[취소]</button>
-      </div>
+  <div class="table-container">
+    <table id="mainTable">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="checkAll" /></th>
+          <th>접수일자<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(1,this.value)" /></th>
+          <th>발송일자<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(2,this.value)" /></th>
+          <th>거래처<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(3,this.value)" /></th>
+          <th>품번<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(4,this.value)" /></th>
+          <th>품명<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(5,this.value)" /></th>
+          <th>규격<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(6,this.value)" /></th>
+          <th>증상<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(7,this.value)" /></th>
+          <th>진단 결과<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(8,this.value)" /></th>
+          <th>상태<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(9,this.value)" /></th>
+          <th>수리 담당자<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(10,this.value)" /></th>
+          <th>연락처<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(11,this.value)" /></th>
+          <th>수리완료일<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(12,this.value)" /></th>
+          <th>수리비용<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(13,this.value)" /></th>
+          <th>비고<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(14,this.value)" /></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr>
+          <td><input type="checkbox" class="rowCheck" /></td>
+          <td><input type="date" /></td>
+          <td><input type="date" /></td>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+          <td>
+            <select>
+              <option value="">선택</option>
+              <option value="접수완료">접수완료</option>
+              <option value="수리중">수리 중</option>
+              <option value="무상수리완료">무상수리완료</option>
+              <option value="유상수리완료">유상수리완료</option>
+            </select>
+          </td>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+          <td><input type="date" /></td>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 접수 모달 -->
+<div id="registerModal" class="modal" aria-hidden="true">
+  <div class="modal-content">
+    <h2 class="modal-header">신규 접수 등록</h2>
+    <table class="modal-table">
+      <tr><th>접수일자</th><td><input id="mReceipt" type="date" class="modal-input" /></td></tr>
+      <tr><th>거래처</th><td><input id="mCompany" type="text" class="modal-input" maxlength="20" /></td></tr>
+      <tr><th>품번</th><td><input id="mPartNo" type="text" class="modal-input" maxlength="20" /></td></tr>
+      <tr><th>품명</th><td><input id="mPartName" type="text" class="modal-input" maxlength="20" /></td></tr>
+      <tr><th>규격</th><td><input id="mSpec" type="text" class="modal-input" maxlength="20" /></td></tr>
+      <tr><th>증상</th><td><input id="mSymptom" type="text" class="modal-input" maxlength="20" /></td></tr>
+      <tr><th>담당자</th><td><input id="mRepairer" type="text" class="modal-input" maxlength="20" /></td></tr>
+      <tr><th>연락처</th><td><input id="mContact" type="text" class="modal-input" maxlength="20" /></td></tr>
+      <tr><th>비고</th><td><input id="mNote" type="text" class="modal-input" maxlength="20" /></td></tr>
+    </table>
+    <div class="modal-footer">
+      <button class="modal-btn ok" id="mOk">[확인]</button>
+      <button class="modal-btn cancel" id="mCancel">[취소]</button>
     </div>
   </div>
+</div>
 
-  <script>
-    /* ---------- LocalStorage Save/Load ---------- */
-    function saveTableData(){
-      const rows = [];
-      document.querySelectorAll('#tableBody tr').forEach(tr => {
-        const rowData = [];
-        tr.querySelectorAll('td').forEach((td, idx) => {
-          // 0: checkbox, 1/2/12: date inputs, 9: select, others: contenteditable text
-          if(idx === 0){
-            const cb = td.querySelector('input[type="checkbox"]');
-            rowData.push(!!(cb && cb.checked));
-          }else if([1,2,12].includes(idx)){
-            const input = td.querySelector('input[type="date"]');
-            rowData.push(input ? input.value : '');
-          }else if(idx === 9){
-            const sel = td.querySelector('select');
-            rowData.push(sel ? sel.value : '');
-          }else{
-            rowData.push((td.textContent || '').trim());
-          }
-        });
-        rows.push(rowData);
-      });
-      localStorage.setItem('repairTableData', JSON.stringify(rows));
-    }
+<script>
+const STORAGE_KEY = "seaRepairTable_v3";
 
-    function loadTableData(){
-      const saved = localStorage.getItem('repairTableData');
-      if(!saved) return;
-      const data = JSON.parse(saved || '[]');
-      if(!data.length) return;
-      const tbody = document.getElementById('tableBody');
-      tbody.innerHTML = '';
-      data.forEach(rowData => {
-        const tr = tbody.insertRow();
-        for(let idx=0; idx<15; idx++){
-          const td = tr.insertCell();
-          if(idx === 0){
-            td.className = 'checkbox-cell';
-            td.innerHTML = '<input type="checkbox"' + (rowData[idx] ? ' checked' : '') + '>';
-          }else if([1,2,12].includes(idx)){
-            td.innerHTML = '<input type="date" value="'+ (rowData[idx] || '') +'">';
-          }else if(idx === 9){
-            td.innerHTML = '<select onchange="updateStatus(this)">'+
-              '<option value="">선택</option>'+
-              '<option value="접수완료"'+(rowData[idx]==='접수완료'?' selected':'')+'>접수완료</option>'+
-              '<option value="수리중"'+(rowData[idx]==='수리중'?' selected':'')+'>수리 중</option>'+
-              '<option value="무상수리완료"'+(rowData[idx]==='무상수리완료'?' selected':'')+'>무상수리완료</option>'+
-              '<option value="유상수리완료"'+(rowData[idx]==='유상수리완료'?' selected':'')+'>유상수리완료</option>'+
-            '</select>';
-          }else{
-            td.contentEditable = 'true';
-            td.textContent = rowData[idx] || '';
-          }
-        }
-      });
-    }
+const tbody = document.getElementById("tableBody");
+const checkAll = document.getElementById("checkAll");
+document.getElementById("btnAdd").addEventListener("click", addRow);
+document.getElementById("btnDelete").addEventListener("click", deleteSelected);
+document.getElementById("btnOpen").addEventListener("click", openModal);
 
-    function attachSaveEvents(){
-      const table = document.getElementById('mainTable');
-      table.addEventListener('input', saveTableData);
-      table.addEventListener('change', saveTableData);
-    }
+checkAll.addEventListener("change", () => {
+  document.querySelectorAll(".rowCheck").forEach(cb => cb.checked = checkAll.checked);
+});
 
-    window.addEventListener('DOMContentLoaded', () => {
-      loadTableData();
-      attachSaveEvents();
+/* ---------- table ops ---------- */
+function addRow(prefill) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><input type="checkbox" class="rowCheck" /></td>
+    <td><input type="date" /></td>
+    <td><input type="date" /></td>
+    <td contenteditable="true"></td>
+    <td contenteditable="true"></td>
+    <td contenteditable="true"></td>
+    <td contenteditable="true"></td>
+    <td contenteditable="true"></td>
+    <td contenteditable="true"></td>
+    <td>
+      <select>
+        <option value="">선택</option>
+        <option value="접수완료">접수완료</option>
+        <option value="수리중">수리 중</option>
+        <option value="무상수리완료">무상수리완료</option>
+        <option value="유상수리완료">유상수리완료</option>
+      </select>
+    </td>
+    <td contenteditable="true"></td>
+    <td contenteditable="true"></td>
+    <td><input type="date" /></td>
+    <td contenteditable="true"></td>
+    <td contenteditable="true"></td>
+  `;
+  tbody.appendChild(tr);
+  if (prefill) fillRowWithModal(tr, prefill);
+  attachRowListeners(tr);
+  saveTable();
+}
+
+function deleteSelected() {
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+  rows.forEach(r => {
+    const cb = r.querySelector(".rowCheck");
+    if (cb && cb.checked) r.remove();
+  });
+  saveTable();
+}
+
+/* ---------- modal ---------- */
+const modal = document.getElementById("registerModal");
+document.getElementById("mOk").addEventListener("click", () => {
+  const pre = {
+    receipt: document.getElementById("mReceipt").value,
+    company: document.getElementById("mCompany").value,
+    partNo: document.getElementById("mPartNo").value,
+    partName: document.getElementById("mPartName").value,
+    spec: document.getElementById("mSpec").value,
+    symptom: document.getElementById("mSymptom").value,
+    repairer: document.getElementById("mRepairer").value,
+    contact: document.getElementById("mContact").value,
+    note: document.getElementById("mNote").value
+  };
+  addRow(pre);
+  closeModal();
+});
+
+document.getElementById("mCancel").addEventListener("click", closeModal);
+modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+function openModal() {
+  modal.style.display = "block";
+  document.body.style.overflow = "hidden";
+  modal.querySelectorAll("input").forEach(i => i.value = "");
+}
+function closeModal() {
+  modal.style.display = "none";
+  document.body.style.overflow = "";
+}
+function fillRowWithModal(tr, pre) {
+  const tds = tr.children;
+  if (pre.receipt) tds[1].querySelector("input").value = pre.receipt;
+  tds[3].innerText = pre.company || "";
+  tds[4].innerText = pre.partNo || "";
+  tds[5].innerText = pre.partName || "";
+  tds[6].innerText = pre.spec || "";
+  tds[7].innerText = pre.symptom || "";
+  tds[10].innerText = pre.repairer || "";
+  tds[11].innerText = pre.contact || "";
+  tds[14].innerText = pre.note || "";
+}
+
+/* ---------- filter ---------- */
+function filterTable(colIndex, term) {
+  const rows = tbody.querySelectorAll("tr");
+  const q = (term || "").toLowerCase();
+  rows.forEach(r => {
+    const cell = r.cells[colIndex];
+    const text = cell ? (cell.innerText || cell.textContent || "").toLowerCase() : "";
+    r.style.display = text.indexOf(q) > -1 ? "" : "none";
+  });
+}
+
+/* ---------- persistence ---------- */
+function serialize() {
+  const rows = [];
+  tbody.querySelectorAll("tr").forEach(r => {
+    const cells = [];
+    Array.from(r.cells).forEach((c, i) => {
+      if (i === 0) { cells.push(null); return; } // checkbox skip
+      const input = c.querySelector("input");
+      const sel = c.querySelector("select");
+      if (input) cells.push(input.value);
+      else if (sel) cells.push(sel.value);
+      else cells.push(c.innerText);
     });
+    rows.push(cells);
+  });
+  return rows;
+}
 
-    /* ---------- 기존 기능들 ---------- */
-    function addRow(){
-      const tbody = document.getElementById('tableBody');
-      const tr = tbody.insertRow();
-      tr.innerHTML = `
-        <td class="checkbox-cell"><input type="checkbox"></td>
-        <td><input type="date"></td>
-        <td><input type="date"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td>
-          <select onchange="updateStatus(this)">
-            <option value="">선택</option>
-            <option value="접수완료">접수완료</option>
-            <option value="수리중">수리 중</option>
-            <option value="무상수리완료">무상수리완료</option>
-            <option value="유상수리완료">유상수리완료</option>
-          </select>
-        </td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td><input type="date"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-      `;
-      saveTableData();
-    }
-
-    function deleteSelectedRows(){
-      const tbody = document.getElementById('tableBody');
-      const boxes = tbody.querySelectorAll('input[type="checkbox"]:checked');
-      for(let i=boxes.length-1; i>=0; i--){
-        boxes[i].closest('tr').remove();
-      }
-      saveTableData();
-    }
-
-    function toggleAllCheckboxes(master){
-      const tbody = document.getElementById('tableBody');
-      tbody.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = master.checked);
-    }
-
-    function updateStatus(selectElement){
-      const row = selectElement.closest('tr');
-      const statusCell = row.cells[9];
-      const status = selectElement.value;
-      statusCell.className = '';
-      if(status){ statusCell.classList.add(`status-${status.replace(/\s+/g,'')}`); }
-    }
-
-    function filterTable(columnIndex, filterValue){
-      const rows = document.getElementById('tableBody').rows;
-      for(let i=0; i<rows.length; i++){
-        const cell = rows[i].cells[columnIndex];
-        const txt = (cell.textContent || cell.innerText || '').toLowerCase();
-        rows[i].style.display = txt.indexOf(filterValue.toLowerCase()) > -1 ? '' : 'none';
-      }
-    }
-
-    function openRegisterModal(){
-      document.getElementById('registerModal').style.display = 'block';
-      document.body.style.overflow = 'hidden';
-      document.querySelectorAll('#registerModal input').forEach(i => i.value = '');
-    }
-    function closeRegisterModal(){
-      document.getElementById('registerModal').style.display = 'none';
-      document.body.style.overflow = '';
-    }
-
-    function confirmRegister(){
-      const receiptDate = document.getElementById('modalReceiptDate').value;
-      const company = document.getElementById('modalCompany').value;
-      const partNo = document.getElementById('modalPartNo').value;
-      const partName = document.getElementById('modalPartName').value;
-      const spec = document.getElementById('modalSpec').value;
-      const symptom = document.getElementById('modalSymptom').value;
-      const repairer = document.getElementById('modalRepairer').value;
-      const contact = document.getElementById('modalContact').value;
-      const note = document.getElementById('modalNote').value;
-
-      const tbody = document.getElementById('tableBody');
-      const tr = tbody.insertRow();
-      tr.innerHTML = `
-        <td class="checkbox-cell"><input type="checkbox"></td>
-        <td>${receiptDate ? `<input type="date" value="${receiptDate}">` : '<input type="date">'}</td>
-        <td><input type="date"></td>
-        <td contenteditable="true">${company}</td>
-        <td contenteditable="true">${partNo}</td>
-        <td contenteditable="true">${partName}</td>
-        <td contenteditable="true">${spec}</td>
-        <td contenteditable="true">${symptom}</td>
-        <td></td>
-        <td class="status-접수완료">
-          <select onchange="updateStatus(this)">
-            <option value="">선택</option>
-            <option value="접수완료" selected>접수완료</option>
-            <option value="수리중">수리 중</option>
-            <option value="무상수리완료">무상수리완료</option>
-            <option value="유상수리완료">유상수리완료</option>
-          </select>
-        </td>
-        <td>${repairer}</td>
-        <td>${contact}</td>
-        <td><input type="date"></td>
-        <td></td>
-        <td>${note}</td>
-      `;
-      closeRegisterModal();
-      saveTableData();
-    }
-
-    // Close modal on outside click / ESC
-    window.onclick = function(event){
-      const modal = document.getElementById('registerModal');
-      if(event.target === modal){ closeRegisterModal(); }
-    }
-    document.addEventListener('keydown', function(event){
-      if(event.key === 'Escape'){ closeRegisterModal(); }
+function deserialize(rows) {
+  tbody.innerHTML = "";
+  (rows || []).forEach(cells => {
+    addRow();
+    const tr = tbody.lastElementChild;
+    Array.from(tr.cells).forEach((c, i) => {
+      if (i === 0) return;
+      const input = c.querySelector("input");
+      const sel = c.querySelector("select");
+      const v = cells[i-1] ?? "";
+      if (input) input.value = v;
+      else if (sel) sel.value = v;
+      else c.innerText = v;
     });
-  </script>
+  });
+  if (!rows || rows.length === 0) attachAllListeners(); // initial row
+}
+
+function saveTable() {
+  const data = serialize();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadTable() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) { attachAllListeners(); return; }
+    const data = JSON.parse(raw);
+    deserialize(data);
+  } catch(e) {
+    console.warn("loadTable failed", e);
+    attachAllListeners();
+  }
+}
+
+function attachRowListeners(tr) {
+  tr.addEventListener("input", saveTable, true);
+  tr.addEventListener("change", saveTable, true);
+  tr.querySelectorAll("[contenteditable]").forEach(el => {
+    el.addEventListener("blur", saveTable);
+  });
+}
+function attachAllListeners() {
+  tbody.querySelectorAll("tr").forEach(attachRowListeners);
+}
+
+loadTable();
+</script>
 </body>
 </html>
