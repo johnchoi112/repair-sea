@@ -17,8 +17,9 @@
             padding: 20px;
         }
 
+        /* 컨테이너 폭 확대 */
         .container {
-            max-width: 1400px;
+            max-width: 2000px; /* 기존 1400px → 2000px */
             margin: 0 auto;
         }
 
@@ -79,20 +80,23 @@
             background: white;
             border-radius: 15px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            overflow-x: auto;
+            overflow: hidden;      /* 가로 스크롤 제거 */
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 1200px;
+            min-width: unset;      /* 기존 1200px 강제폭 해제 */
+            table-layout: fixed;   /* 폭 비율대로 고르게 분배 */
         }
 
         th, td {
             padding: 12px 8px;
             text-align: center;
             border: 1px solid #e0e0e0;
+            white-space: nowrap;   /* 텍스트 줄바꿈 방지(폭 유지) */
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         th {
@@ -144,45 +148,55 @@
             min-height: 20px;
         }
 
-#mainTable th:nth-child(10),
-#mainTable td:nth-child(10) {
-    width: 160px;
-    min-width: 160px;
-}
-
-#mainTable td:nth-child(10) select {
-    width: 100%;
-    font-size: 0.95rem;
-    padding: 8px 10px;
-}
-        [contenteditable]:hover {
-            border-color: #ddd;
-        }
-
+        [contenteditable]:hover { border-color: #ddd; }
         [contenteditable]:focus {
             border-color: #2196F3;
             background-color: #fff3e0;
         }
 
-        .status-접수완료 {
-            background-color: #e0e0e0;
-            color: #616161;
-        }
+        /* === 열 폭 비율(요청하신 항목 확대) ===
+           1: 체크, 2: 접수일자, 3: 발송일자, 4: 거래처, 5: 품번, 6: 품명, 7: 규격, 8: 증상, 9: 진단결과,
+           10: 상태, 11: 수리담당자, 12: 연락처, 13: 수리완료일, 14: 수리비용, 15: 비고
+        */
+        #mainTable th:nth-child(1),
+        #mainTable td:nth-child(1) { width: 3%; }
 
-        .status-수리중 {
-            background-color: #bbdefb;
-            color: #1976d2;
-        }
+        #mainTable th:nth-child(2),
+        #mainTable td:nth-child(2) { width: 7%; }
 
-        .status-무상수리완료 {
-            background-color: #c8e6c9;
-            color: #388e3c;
-        }
+        #mainTable th:nth-child(3),
+        #mainTable td:nth-child(3) { width: 7%; }
 
-        .status-유상수리완료 {
-            background-color: #ffe0b2;
-            color: #ef6c00;
-        }
+        /* 확대 요청 컬럼 */
+        #mainTable th:nth-child(4),
+        #mainTable td:nth-child(4) { width: 12%; }  /* 거래처 */
+
+        #mainTable th:nth-child(5),
+        #mainTable td:nth-child(5) { width: 10%; }  /* 품번 */
+
+        #mainTable th:nth-child(6),
+        #mainTable td:nth-child(6) { width: 14%; }  /* 품명 */
+
+        #mainTable th:nth-child(7),
+        #mainTable td:nth-child(7) { width: 9%; }   /* 규격 */
+
+        #mainTable th:nth-child(11),
+        #mainTable td:nth-child(11) { width: 10%; } /* 수리담당자 */
+
+        #mainTable th:nth-child(12),
+        #mainTable td:nth-child(12) { width: 10%; } /* 연락처 */
+
+        #mainTable th:nth-child(14),
+        #mainTable td:nth-child(14) { width: 7%; }  /* 수리비용 */
+
+        #mainTable th:nth-child(15),
+        #mainTable td:nth-child(15) { width: 10%; } /* 비고 */
+
+        /* 나머지(상태/증상/진단결과/수리완료일)는 자동 분배 */
+        .status-접수완료 { background-color: #e0e0e0; color: #616161; }
+        .status-수리중   { background-color: #bbdefb; color: #1976d2; }
+        .status-무상수리완료 { background-color: #c8e6c9; color: #388e3c; }
+        .status-유상수리완료 { background-color: #ffe0b2; color: #ef6c00; }
 
         .filter-input {
             width: 100%;
@@ -194,49 +208,34 @@
             font-size: 0.75rem;
         }
 
-        .checkbox-cell {
-            width: 30px;
-        }
-
-        .checkbox-cell input {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
+        .checkbox-cell { width: 30px; }
+        .checkbox-cell input { width: 18px; height: 18px; cursor: pointer; }
 
         .modal {
             display: none;
             position: fixed;
             z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
         }
 
-        /* ======= MODAL SIZE/FLOW FIXES ======= */
+        /* MODAL */
         .modal-content {
-    background-color: white;
-    margin: 5% auto;
-    padding: 20px;
-    border-radius: 12px;
-    width: 420px; /* 기존 420px → 축소 */
-    max-width: calc(100vw - 40px);
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    animation: modalSlideIn 0.3s ease-out;
-}
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 12px;
+            width: 420px;
+            max-width: calc(100vw - 40px);
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
 
         @keyframes modalSlideIn {
-            from {
-                transform: translateY(-50px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+            from { transform: translateY(-50px); opacity: 0; }
+            to   { transform: translateY(0);     opacity: 1; }
         }
 
         .modal-header {
@@ -268,14 +267,12 @@
             white-space: nowrap;
         }
 
-        .modal-table td {
-            min-width: 0;
-        }
+        .modal-table td { min-width: 0; }
 
         .modal-input {
             display: block;
-            width: 100%;
-            max-width: 240px;
+            width: 80%;
+            max-width: 100%;
             box-sizing: border-box;
             padding: 6px;
             border: 1px solid #ddd;
@@ -284,14 +281,9 @@
             font-size: 0.9rem;
         }
 
-        .modal-input:focus {
-            outline: 2px solid #2196F3;
-        }
+        .modal-input:focus { outline: 2px solid #2196F3; }
 
-        .modal-footer {
-            text-align: center;
-            margin-top: 12px;
-        }
+        .modal-footer { text-align: center; margin-top: 12px; }
 
         .modal-btn {
             padding: 10px 18px;
@@ -304,47 +296,19 @@
             font-size: 0.9rem;
         }
 
-        .modal-btn-confirm {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-        }
-
-        .modal-btn-cancel {
-            background: linear-gradient(135deg, #f44336 0%, #da190b 100%);
-            color: white;
-        }
-
-        .modal-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-        }
+        .modal-btn-confirm { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; }
+        .modal-btn-cancel  { background: linear-gradient(135deg, #f44336 0%, #da190b 100%); color: white; }
+        .modal-btn:hover   { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2); }
 
         @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2rem;
-            }
-            
-            .controls {
-                flex-direction: column;
-            }
-            
-            .btn {
-                width: 100%;
-                padding: 10px 20px;
-                font-size: 0.9rem;
-            }
-            
+            .header h1 { font-size: 2rem; }
+            .controls { flex-direction: column; }
+            .btn { width: 100%; padding: 10px 20px; font-size: 0.9rem; }
             .modal-content {
-    background-color: white;
-    margin: 5% auto;
-    padding: 20px;
-    border-radius: 12px;
-    width: 80px; /* 기존 420px → 축소 */
-    max-width: calc(100vw - 40px);
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    animation: modalSlideIn 0.3s ease-out;
-}
+                padding: 15px;
+                width: calc(100vw - 40px);
+                max-width: calc(100vw - 40px);
+            }
         }
     </style>
 </head>
@@ -504,9 +468,7 @@
         function toggleAllCheckboxes(masterCheckbox) {
             const tbody = document.getElementById('tableBody');
             const checkboxes = tbody.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = masterCheckbox.checked;
-            });
+            checkboxes.forEach(checkbox => { checkbox.checked = masterCheckbox.checked; });
         }
 
         function updateStatus(selectElement) {
@@ -585,15 +547,11 @@
 
         window.onclick = function(event) {
             const modal = document.getElementById('registerModal');
-            if (event.target === modal) {
-                closeRegisterModal();
-            }
+            if (event.target === modal) { closeRegisterModal(); }
         }
 
         document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeRegisterModal();
-            }
+            if (event.key === 'Escape') { closeRegisterModal(); }
         });
 
         document.addEventListener('input', function(e) {
