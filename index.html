@@ -165,7 +165,7 @@ checkAll.addEventListener("change", () => {
 });
 
 /* ---------- table ops ---------- */
-function addRow(prefill) {
+function addRow(prefill, skipSave = false) {
   const tr = document.createElement("tr");
   tr.innerHTML = `
     <td><input type="checkbox" class="rowCheck" /></td>
@@ -195,7 +195,7 @@ function addRow(prefill) {
   tbody.appendChild(tr);
   if (prefill) fillRowWithModal(tr, prefill);
   attachRowListeners(tr);
-  saveTable();
+  if (!skipSave) saveTable();
 }
 
 function deleteSelected() {
@@ -283,7 +283,7 @@ function serialize() {
 function deserialize(rows) {
   tbody.innerHTML = "";
   (rows || []).forEach(cells => {
-    addRow();
+    addRow(undefined, true); // 복원 중 저장 스킵
     const tr = tbody.lastElementChild;
     Array.from(tr.cells).forEach((c, i) => {
       if (i === 0) return;
@@ -296,6 +296,8 @@ function deserialize(rows) {
     });
   });
   if (!rows || rows.length === 0) attachAllListeners(); // initial row
+  // 복원 완료 상태 저장
+  saveTable();
 }
 
 function saveTable() {
