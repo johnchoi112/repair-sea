@@ -42,7 +42,7 @@
   #mainTable th:nth-child(6),  #mainTable td:nth-child(6)  { min-width: 100px; } /* 품명 */
   #mainTable th:nth-child(7),  #mainTable td:nth-child(7)  { min-width: 130px; } /* 규격 */
   #mainTable th:nth-child(10), #mainTable td:nth-child(10) { min-width: 160px; } /* 상태 */
-  #mainTable th:nth-child(11), #mainTable td:nth-child(11) { min-width: 60px; }  /* 수리담당자 */
+  #mainTable th:nth-child(11), #mainTable td:nth-child(11) { min-width: 60px; }  /* 수리요청자 */
   #mainTable th:nth-child(12), #mainTable td:nth-child(12) { min-width: 100px; } /* 연락처 */
   #mainTable th:nth-child(14), #mainTable td:nth-child(14) { min-width: 60px; }  /* 수리비용 */
   #mainTable th:nth-child(15), #mainTable td:nth-child(15) { min-width: 100px; } /* 비고 */
@@ -86,7 +86,7 @@
           <th>증상<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(7,this.value)" /></th>
           <th>진단 결과<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(8,this.value)" /></th>
           <th>상태<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(9,this.value)" /></th>
-          <th>수리 담당자<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(10,this.value)" /></th>
+          <th>수리 요청자<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(10,this.value)" /></th>
           <th>연락처<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(11,this.value)" /></th>
           <th>수리완료일<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(12,this.value)" /></th>
           <th>수리비용<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(13,this.value)" /></th>
@@ -111,7 +111,7 @@
       <tr><th>품명</th><td><input id="mPartName" type="text" class="modal-input" maxlength="100" /></td></tr>
       <tr><th>규격</th><td><input id="mSpec" type="text" class="modal-input" maxlength="100" /></td></tr>
       <tr><th>증상</th><td><input id="mSymptom" type="text" class="modal-input" maxlength="200" /></td></tr>
-      <tr><th>담당자</th><td><input id="mRepairer" type="text" class="modal-input" maxlength="50" /></td></tr>
+      <tr><th>요청인</th><td><input id="mRepairer" type="text" class="modal-input" maxlength="50" /></td></tr>
       <tr><th>연락처</th><td><input id="mContact" type="text" class="modal-input" maxlength="50" /></td></tr>
       <tr><th>비고</th><td><input id="mNote" type="text" class="modal-input" maxlength="300" /></td></tr>
     </table>
@@ -381,3 +381,4 @@ onAuthStateChanged(auth, (user) => {
 </script>
 </body>
 </html>
+
