@@ -12,23 +12,32 @@ const mCancel = () => getEl("mCancel");
 const btnOpen = () => getEl("btnOpen");
 
 function openModal() {
-  const md = modal();
-  if (!md) return;
-  md.style.display = "block";
-  document.body.style.overflow = "hidden";
-  // 입력 초기화 & 기본값
-  ["mReceipt","mCompany","mPartNo","mPartName","mSpec","mSymptom","mRepairer","mContact","mNote"]
-    .forEach(id => { const el = getEl(id); if (el) el.value = ""; });
-  // 접수일자 기본값(오늘)
-  const today = new Date();
-  const p = n => String(n).padStart(2,"0");
-  const dstr = `${today.getFullYear()}-${p(today.getMonth()+1)}-${p(today.getDate())}`;
-  if (getEl("mReceipt")) getEl("mReceipt").value = dstr;
+const md = modal();
+if (!md) return;
+md.style.display = "block";
+md.setAttribute("aria-hidden", "false");   // ✅ 접근성: 표시 시 false
+document.body.style.overflow = "hidden";
+
+// 입력 초기화
+["mReceipt","mCompany","mPartNo","mPartName","mSpec","mSymptom","mRepairer","mContact","mNote"]
+.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+
+// 기본 접수일자 = 오늘
+const today = new Date();
+const p = n => String(n).padStart(2,"0");
+const dstr = `${today.getFullYear()}-${p(today.getMonth()+1)}-${p(today.getDate())}`;
+const rcv = document.getElementById("mReceipt");
+if (rcv) rcv.value = dstr;
+
+// 포커스 모달로 이동(접근성)
+const mc = md.querySelector(".modal-content");
+mc && mc.focus();
 }
 
 function closeModal() {
   const md = modal();
   if (!md) return;
+  md.setAttribute("aria-hidden", "true");    // ✅ 접근성: 숨김 시 true
   md.style.display = "none";
   document.body.style.overflow = "";
 }
@@ -99,3 +108,4 @@ if (document.readyState === "loading") {
 } else {
   start();
 }
+
