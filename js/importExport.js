@@ -31,7 +31,7 @@ async function loadXLSX() {
   await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
   if (!window.XLSX) throw new Error("XLSX 로드 실패");
   return window.XLSX;
-};
+}
 
   let lastErr = null;
   for (const cand of CANDIDATES) {
@@ -217,4 +217,5 @@ function yyyymmdd(d = new Date()){
   const p = n => n.toString().padStart(2,"0");
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
 }
+
 
