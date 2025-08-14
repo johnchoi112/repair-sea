@@ -12,19 +12,44 @@ const HEADER_TO_KEY = {
   "증상": "symptom",
   "진단 결과": "diagnosis",
   "상태": "status",
-  "수리 담당자": "repairer",
+  "수리 요청자": "repairer",
   "연락처": "contact",
   "수리완료일": "completeDate",
   "수리비용": "cost",
   "비고": "note"
 };
-
 const KEY_TO_HEADER = Object.fromEntries(Object.entries(HEADER_TO_KEY).map(([k,v]) => [v,k]));
 
-/** UI 주입: 우측 하단 FAB + 모달 */
+/* -------------------- 공용: 안전한 XLSX 로더 -------------------- */
+/* 1) ESM 모듈 시도 → 2) 실패 시 UMD(전역 XLSX) 로 폴백 */
+async function loadXLSX() {
+  // ESM 빌드 (권장)
+  const ESM = "https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.mjs";
+  // UMD 빌드 (전역 XLSX 노출)
+  const UMD = "https://cdn.jsdelivr.net/npm/xlsx@0.20.0/dist/xlsx.full.min.js";
+
+  try {
+    const mod = await import(ESM);
+    // 일부 CDN은 default 없이 네임스페이스로만 노출될 수 있음
+    return mod.default || mod;
+  } catch (e) {
+    console.warn("[XLSX] ESM 로드 실패, UMD로 폴백합니다.", e);
+    await new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = UMD;
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+    if (!window.XLSX) throw new Error("XLSX UMD 로드 실패");
+    return window.XLSX;
+  }
+}
+
+/* -------------------- UI 주입 (FAB) -------------------- */
 export function injectImportExportUI() {
   if (document.getElementById("ieFab")) return;
-
   const fab = document.createElement("div");
   fab.id = "ieFab";
   fab.innerHTML = `
@@ -52,21 +77,25 @@ export function injectImportExportUI() {
   document.getElementById("ieHiddenInput").addEventListener("change", handleImportFile);
 }
 
-/** ----- 내보내기: XLSX ----- */
+/* -------------------- 내보내기: XLSX -------------------- */
 async function exportXLSX() {
-  const rows = await fetchAllRows();
-  const data = [schemaKeys.map(k => KEY_TO_HEADER[k] || k)];
-  rows.forEach(r => data.push(schemaKeys.map(k => r[k] ?? "")));
+  try {
+    const rows = await fetchAllRows();
+    const data = [schemaKeys.map(k => KEY_TO_HEADER[k] || k)];
+    rows.forEach(r => data.push(schemaKeys.map(k => r[k] ?? "")));
 
-  // 동적 로딩 (필요할 때만 다운로드)
-  const XLSX = (await import("https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js")).default;
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, "SEA");
-  XLSX.writeFile(wb, `SEA_export_${yyyymmdd()}.xlsx`);
+    const XLSX = await loadXLSX(); // ✅ 안전한 로더 사용
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, "SEA");
+    XLSX.writeFile(wb, `SEA_export_${yyyymmdd()}.xlsx`);
+  } catch (err) {
+    console.error("엑셀 내보내기 실패:", err);
+    alert("엑셀 내보내기 중 오류가 발생했습니다. (자세한 내용은 콘솔 참조)");
+  }
 }
 
-/** ----- 내보내기: CSV ----- */
+/* -------------------- 내보내기: CSV -------------------- */
 async function exportCSV() {
   const rows = await fetchAllRows();
   const headers = schemaKeys.map(k => KEY_TO_HEADER[k] || k);
@@ -80,31 +109,37 @@ function csvEscape(v) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
 }
 
-/** ----- 가져오기: CSV / XLSX ----- */
+/* -------------------- 가져오기: CSV/XLSX -------------------- */
 async function handleImportFile(e) {
   const file = e.target.files?.[0];
   if (!file) return;
   const name = file.name.toLowerCase();
 
-  let rows;
-  if (name.endsWith(".csv")) {
-    rows = await parseCSV(file);
-  } else {
-    const XLSX = (await import("https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js")).default;
-    const ab = await file.arrayBuffer();
-    const wb = XLSX.read(ab, { type: "array" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+  try {
+    let rows;
+    if (name.endsWith(".csv")) {
+      rows = await parseCSV(file);
+    } else {
+      const XLSX = await loadXLSX(); // ✅ 동일 로더 사용
+      const ab = await file.arrayBuffer();
+      const wb = XLSX.read(ab, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+    }
+
+    const normalized = rows.map(r => mapToSchema(r));
+    for (const rec of normalized) await addRowDoc(rec);
+
+    alert(`가져오기 완료: ${normalized.length}건 추가`);
+  } catch (err) {
+    console.error("가져오기 실패:", err);
+    alert("가져오기 중 오류가 발생했습니다. (자세한 내용은 콘솔 참조)");
+  } finally {
+    e.target.value = ""; // 파일 입력 초기화
   }
-  // rows: [{헤더명: 값, ...}, ...]
-  const normalized = rows.map(r => mapToSchema(r));
-  for (const rec of normalized) {
-    await addRowDoc(rec);
-  }
-  alert(`가져오기 완료: ${normalized.length}건 추가`);
-  e.target.value = ""; // 초기화
 }
 
+/* -------------------- 보조 함수들 -------------------- */
 async function parseCSV(file) {
   const text = await file.text();
   const lines = text.split(/\r?\n/).filter(Boolean);
@@ -134,19 +169,16 @@ function splitCsvLine(line) {
   res.push(cur);
   return res;
 }
-
 function mapToSchema(record) {
   const out = {};
-  // 1) 한글 헤더 우선 매핑
   Object.entries(record).forEach(([h, v]) => {
     const key = HEADER_TO_KEY[h.trim()];
     if (key) out[key] = v ?? "";
   });
-  // 2) 혹시 키가 이미 영문(schema key)로 들어오면 그대로 사용
+  // 이미 영문 키로 온 값도 반영
   schemaKeys.forEach(k => { if (record[k] != null) out[k] = record[k]; });
   return out;
 }
-
 function downloadBlob(blob, filename) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -154,7 +186,6 @@ function downloadBlob(blob, filename) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-
 function yyyymmdd(d = new Date()){
   const p = n => n.toString().padStart(2,"0");
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
