@@ -4,11 +4,66 @@ import { addRowDoc, deleteRows, subscribeRealtime } from "./data.js";
 import { renderNewRow, updateRow, removeRow, selectedRowIds, wireCheckAll, exposeFilter } from "./ui.js";
 import { injectImportExportUI } from "./importExport.js";
 
-function bindButtons() {
-  const btnAdd = document.getElementById("btnAdd");
-  const btnDelete = document.getElementById("btnDelete");
-  const btnOpen = document.getElementById("btnOpen"); // 기존 등록 모달(이미 HTML에 있음)
+/* ========== 모달 제어(인라인 스크립트 제거로 사라진 부분 복구) ========== */
+function getEl(id) { return document.getElementById(id); }
+const modal = () => getEl("registerModal");
+const mOk = () => getEl("mOk");
+const mCancel = () => getEl("mCancel");
+const btnOpen = () => getEl("btnOpen");
 
+function openModal() {
+  const md = modal();
+  if (!md) return;
+  md.style.display = "block";
+  document.body.style.overflow = "hidden";
+  // 입력 초기화 & 기본값
+  ["mReceipt","mCompany","mPartNo","mPartName","mSpec","mSymptom","mRepairer","mContact","mNote"]
+    .forEach(id => { const el = getEl(id); if (el) el.value = ""; });
+  // 접수일자 기본값(오늘)
+  const today = new Date();
+  const p = n => String(n).padStart(2,"0");
+  const dstr = `${today.getFullYear()}-${p(today.getMonth()+1)}-${p(today.getDate())}`;
+  if (getEl("mReceipt")) getEl("mReceipt").value = dstr;
+}
+
+function closeModal() {
+  const md = modal();
+  if (!md) return;
+  md.style.display = "none";
+  document.body.style.overflow = "";
+}
+
+function wireModal() {
+  // 열기
+  btnOpen()?.addEventListener("click", openModal);
+  // 확인
+  mOk()?.addEventListener("click", async () => {
+    const pre = {
+      receipt: getEl("mReceipt")?.value || "",
+      company: getEl("mCompany")?.value || "",
+      partNo: getEl("mPartNo")?.value || "",
+      partName: getEl("mPartName")?.value || "",
+      spec: getEl("mSpec")?.value || "",
+      symptom: getEl("mSymptom")?.value || "",
+      repairer: getEl("mRepairer")?.value || "",
+      contact: getEl("mContact")?.value || "",
+      note: getEl("mNote")?.value || ""
+    };
+    await addRowDoc(pre);
+    closeModal();
+  });
+  // 취소
+  mCancel()?.addEventListener("click", closeModal);
+  // 배경 클릭으로 닫기
+  modal()?.addEventListener("click", (e) => { if (e.target === modal()) closeModal(); });
+  // ESC로 닫기
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+}
+
+/* ========== 상단 버튼 ========== */
+function bindTopButtons() {
+  const btnAdd = getEl("btnAdd");
+  const btnDelete = getEl("btnDelete");
   btnAdd?.addEventListener("click", () => addRowDoc({}));
   btnDelete?.addEventListener("click", async () => {
     const ids = selectedRowIds();
@@ -16,19 +71,20 @@ function bindButtons() {
     if (!confirm(`${ids.length}개 행을 삭제할까요?`)) return;
     await deleteRows(ids);
   });
-  // btnOpen은 기존 모달 로직을 그대로 사용 (HTML에 이미 연결)
 }
 
+/* ========== 앱 시작 ========== */
 async function start() {
   wireCheckAll();
   exposeFilter();
-  injectImportExportUI();     // 👉 엑셀/CSV 가져오기·내보내기 버튼 + 파일 입력 자동 주입
-  bindButtons();
+  injectImportExportUI(); // 엑셀/CSV 가져오기·내보내기 버튼 주입
+  bindTopButtons();
+  wireModal();            // ✅ 모달 이벤트 바인딩 추가
 
   await signInAnonymously(auth);
   onAuthStateChanged(auth, (user) => {
     if (!user) return;
-    // 실시간 구독 시작
+    // 실시간 구독
     subscribeRealtime({
       onAdd: renderNewRow,
       onModify: updateRow,
