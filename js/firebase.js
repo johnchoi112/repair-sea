@@ -1,15 +1,17 @@
 // js/firebase.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  initializeFirestore, persistentLocalCache, serverTimestamp,
-  collection, addDoc, doc, updateDoc, deleteDoc,
+  // ✅ 최신 Firestore 초기화 & 로컬 캐시
+  initializeFirestore, persistentLocalCache,
+  // 나머지 유틸들 (data.js 등에서 사용)
+  serverTimestamp, collection, addDoc, doc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getAuth, signInAnonymously, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-/** 👉 여기는 ‘프로젝트 설정의 firebaseConfig’로 교체하세요 */
+/** 👉 Firebase 콘솔의 구성값을 그대로 사용 */
 export const firebaseConfig = {
   apiKey: "AIzaSyDu8Vndai1pzgxehi-JC2RKaGyOJpiJJXo",
   authDomain: "searepair-a8528.firebaseapp.com",
@@ -20,13 +22,16 @@ export const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const auth = getAuth(app);
-enableIndexedDbPersistence(db).catch(() => {});
 
+// ✅ getFirestore 대신 최신 방식 사용 (경고 없음)
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache()
+});
+
+export const auth = getAuth(app);
+
+// 다른 모듈에서 편하게 쓰도록 재수출
 export {
-  // re-export for convenience
   serverTimestamp, collection, addDoc, doc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, getDocs, signInAnonymously, onAuthStateChanged
 };
-
