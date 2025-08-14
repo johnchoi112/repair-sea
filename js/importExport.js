@@ -28,14 +28,10 @@ const KEY_TO_HEADER = Object.fromEntries(Object.entries(HEADER_TO_KEY).map(([k,v
      4) UMD(unpkg) → 5) UMD(cdnjs: 0.18.5) 순서로 시도
    ------------------------------------------------------------------ */
 async function loadXLSX() {
-  const CANDIDATES = [
-    { type: "esm", url: "https://cdn.jsdelivr.net/npm/xlsx@0.20.0/+esm" },
-    { type: "esm", url: "https://unpkg.com/xlsx@0.20.0/dist/xlsx.mjs" },
-    { type: "umd", url: "https://cdn.jsdelivr.net/npm/xlsx@0.20.0/dist/xlsx.full.min.js" },
-    { type: "umd", url: "https://unpkg.com/xlsx@0.20.0/dist/xlsx.full.min.js" },
-    // cdnjs는 최신이 느릴 수 있어 안정 버전 사용
-    { type: "umd", url: "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" }
-  ];
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+  if (!window.XLSX) throw new Error("XLSX 로드 실패");
+  return window.XLSX;
+};
 
   let lastErr = null;
   for (const cand of CANDIDATES) {
@@ -221,3 +217,4 @@ function yyyymmdd(d = new Date()){
   const p = n => n.toString().padStart(2,"0");
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
 }
+
