@@ -1,7 +1,7 @@
 // js/firebase.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, enableIndexedDbPersistence, serverTimestamp,
+  initializeFirestore, persistentLocalCache, serverTimestamp,
   collection, addDoc, doc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -29,3 +29,4 @@ export {
   serverTimestamp, collection, addDoc, doc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, getDocs, signInAnonymously, onAuthStateChanged
 };
+
