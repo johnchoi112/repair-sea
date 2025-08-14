@@ -12,6 +12,8 @@ const HEADER_TO_KEY = {
   "증상": "symptom",
   "진단 결과": "diagnosis",
   "상태": "status",
+  // 둘 다 허용(화면 표기가 '수리 담당자' 또는 '수리 요청자'인 경우 모두 대응)
+  "수리 담당자": "repairer",
   "수리 요청자": "repairer",
   "연락처": "contact",
   "수리완료일": "completeDate",
@@ -20,31 +22,61 @@ const HEADER_TO_KEY = {
 };
 const KEY_TO_HEADER = Object.fromEntries(Object.entries(HEADER_TO_KEY).map(([k,v]) => [v,k]));
 
-/* -------------------- 공용: 안전한 XLSX 로더 -------------------- */
-/* 1) ESM 모듈 시도 → 2) 실패 시 UMD(전역 XLSX) 로 폴백 */
+/* ------------------------------------------------------------------
+   안전한 XLSX 로더
+   - 1) ESM (jsDelivr +esm) → 2) ESM (unpkg) → 3) UMD(jsDelivr) →
+     4) UMD(unpkg) → 5) UMD(cdnjs: 0.18.5) 순서로 시도
+   ------------------------------------------------------------------ */
 async function loadXLSX() {
-  // ESM 빌드 (권장)
-  const ESM = "https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.mjs";
-  // UMD 빌드 (전역 XLSX 노출)
-  const UMD = "https://cdn.jsdelivr.net/npm/xlsx@0.20.0/dist/xlsx.full.min.js";
+  const CANDIDATES = [
+    { type: "esm", url: "https://cdn.jsdelivr.net/npm/xlsx@0.20.0/+esm" },
+    { type: "esm", url: "https://unpkg.com/xlsx@0.20.0/dist/xlsx.mjs" },
+    { type: "umd", url: "https://cdn.jsdelivr.net/npm/xlsx@0.20.0/dist/xlsx.full.min.js" },
+    { type: "umd", url: "https://unpkg.com/xlsx@0.20.0/dist/xlsx.full.min.js" },
+    // cdnjs는 최신이 느릴 수 있어 안정 버전 사용
+    { type: "umd", url: "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" }
+  ];
 
-  try {
-    const mod = await import(ESM);
-    // 일부 CDN은 default 없이 네임스페이스로만 노출될 수 있음
-    return mod.default || mod;
-  } catch (e) {
-    console.warn("[XLSX] ESM 로드 실패, UMD로 폴백합니다.", e);
-    await new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = UMD;
-      s.async = true;
-      s.onload = () => resolve();
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-    if (!window.XLSX) throw new Error("XLSX UMD 로드 실패");
-    return window.XLSX;
+  let lastErr = null;
+  for (const cand of CANDIDATES) {
+    try {
+      if (cand.type === "esm") {
+        // ESM: 동적 import
+        const m = await import(/* @vite-ignore */ cand.url);
+        const mod = m?.default || m;
+        if (mod?.utils && mod?.writeFile) {
+          console.info("[XLSX] ESM 로드 성공:", cand.url);
+          return mod;
+        }
+      } else {
+        // UMD: <script> 주입
+        await loadScript(cand.url);
+        if (window.XLSX?.utils && window.XLSX?.writeFile) {
+          console.info("[XLSX] UMD 로드 성공:", cand.url);
+          return window.XLSX;
+        }
+      }
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[XLSX] 로드 실패: ${cand.url}`, e);
+      continue;
+    }
   }
+  throw lastErr || new Error("XLSX 로드 실패");
+}
+
+function loadScript(src, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    s.crossOrigin = "anonymous";
+    s.onload = () => resolve();
+    s.onerror = (ev) => reject(ev);
+    document.head.appendChild(s);
+    // 타임아웃 보호
+    setTimeout(() => reject(new Error("Script load timeout: " + src)), timeoutMs);
+  });
 }
 
 /* -------------------- UI 주입 (FAB) -------------------- */
@@ -84,7 +116,7 @@ async function exportXLSX() {
     const data = [schemaKeys.map(k => KEY_TO_HEADER[k] || k)];
     rows.forEach(r => data.push(schemaKeys.map(k => r[k] ?? "")));
 
-    const XLSX = await loadXLSX(); // ✅ 안전한 로더 사용
+    const XLSX = await loadXLSX(); // ✅ 견고한 로더
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, "SEA");
@@ -135,7 +167,7 @@ async function handleImportFile(e) {
     console.error("가져오기 실패:", err);
     alert("가져오기 중 오류가 발생했습니다. (자세한 내용은 콘솔 참조)");
   } finally {
-    e.target.value = ""; // 파일 입력 초기화
+    e.target.value = "";
   }
 }
 
@@ -175,7 +207,6 @@ function mapToSchema(record) {
     const key = HEADER_TO_KEY[h.trim()];
     if (key) out[key] = v ?? "";
   });
-  // 이미 영문 키로 온 값도 반영
   schemaKeys.forEach(k => { if (record[k] != null) out[k] = record[k]; });
   return out;
 }
