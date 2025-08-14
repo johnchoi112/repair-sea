@@ -22,58 +22,43 @@ const HEADER_TO_KEY = {
 };
 const KEY_TO_HEADER = Object.fromEntries(Object.entries(HEADER_TO_KEY).map(([k,v]) => [v,k]));
 
-/* ------------------------------------------------------------------
-   안전한 XLSX 로더
-   - 1) ESM (jsDelivr +esm) → 2) ESM (unpkg) → 3) UMD(jsDelivr) →
-     4) UMD(unpkg) → 5) UMD(cdnjs: 0.18.5) 순서로 시도
-   ------------------------------------------------------------------ */
+// --- 안전한 XLSX 로더: 로컬 우선, 실패 시 cdnjs ---
 async function loadXLSX() {
-  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
-  if (!window.XLSX) throw new Error("XLSX 로드 실패");
-  return window.XLSX;
-}
+  const CANDIDATES = [
+    { type: "umd", url: "./vendor/xlsx.full.min.js" }, // 로컬(권장)
+    { type: "umd", url: "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" } // 폴백
+  ];
 
   let lastErr = null;
-  for (const cand of CANDIDATES) {
+  for (const c of CANDIDATES) {
     try {
-      if (cand.type === "esm") {
-        // ESM: 동적 import
-        const m = await import(/* @vite-ignore */ cand.url);
-        const mod = m?.default || m;
-        if (mod?.utils && mod?.writeFile) {
-          console.info("[XLSX] ESM 로드 성공:", cand.url);
-          return mod;
-        }
-      } else {
-        // UMD: <script> 주입
-        await loadScript(cand.url);
-        if (window.XLSX?.utils && window.XLSX?.writeFile) {
-          console.info("[XLSX] UMD 로드 성공:", cand.url);
-          return window.XLSX;
-        }
+      await loadScript(c.url);
+      if (window.XLSX && window.XLSX.utils && window.XLSX.writeFile) {
+        console.info("[XLSX] 로드 성공:", c.url);
+        return window.XLSX;            // ✅ 함수 안에서만 return
       }
     } catch (e) {
       lastErr = e;
-      console.warn(`[XLSX] 로드 실패: ${cand.url}`, e);
-      continue;
+      console.warn("[XLSX] 로드 실패:", c.url, e);
     }
   }
   throw lastErr || new Error("XLSX 로드 실패");
 }
 
+// <script> 태그로 UMD 스크립트 로드
 function loadScript(src, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const s = document.createElement("script");
     s.src = src;
     s.async = true;
     s.crossOrigin = "anonymous";
-    s.onload = () => resolve();
-    s.onerror = (ev) => reject(ev);
+    s.onload = resolve;
+    s.onerror = reject;
     document.head.appendChild(s);
-    // 타임아웃 보호
     setTimeout(() => reject(new Error("Script load timeout: " + src)), timeoutMs);
   });
 }
+
 
 /* -------------------- UI 주입 (FAB) -------------------- */
 export function injectImportExportUI() {
@@ -217,5 +202,6 @@ function yyyymmdd(d = new Date()){
   const p = n => n.toString().padStart(2,"0");
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
 }
+
 
 
