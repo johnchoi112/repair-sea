@@ -105,6 +105,21 @@
   pointer-events: none;
 }
 
+ /* === Row background by status (no font color changes) === */
+tr.row-status-received { background: linear-gradient(90deg, #e8f3ff 0%, #f6faff 100%) !important; }
+tr.row-status-repairing { background: linear-gradient(90deg, #eaf8ee 0%, #f7fcf9 100%) !important; }
+tr.row-status-free { background: linear-gradient(90deg, #fffdf2 0%, #fff8e6 100%) !important; }
+tr.row-status-paid { background: linear-gradient(90deg, #f2f2f2 0%, #f7f7f7 100%) !important; }
+
+/* 호버색이 덮지 않도록 동일 유지 */
+tr.row-status-received:hover,
+tr.row-status-repairing:hover,
+tr.row-status-free:hover,
+tr.row-status-paid:hover { filter: brightness(1.0); }
+
+ /* 표 행 배경 전환: 부드럽게 */
+#mainTable tbody tr { transition: background 240ms ease-in-out; }
+
 </style>
 </head>
 <body>
@@ -180,8 +195,49 @@
   </div>
 </div>
  <script type="module" src="./js/main.js"></script>
+<script>
+(function(){
+  const MAP = {
+    "접수완료": "row-status-received",
+    "수리 중": "row-status-repairing",
+    "수리중": "row-status-repairing",
+    "무상수리완료": "row-status-free",
+    "유상수리완료": "row-status-paid"
+  };
+  const ALL = Object.values(MAP);
+
+  function applyStyle(row, value){
+    row.classList.remove(...ALL);
+    const cls = MAP[(value||"").trim()];
+    if (cls) row.classList.add(cls); // 값 없으면(=선택) 기존 바탕색
+  }
+
+  function wireRow(row){
+    const sel = row && row.querySelector('select[data-key="status"]');
+    if (!sel || sel._rowStyleWired) return;
+    sel._rowStyleWired = true;
+    applyStyle(row, sel.value);                 // 초기값 반영
+    sel.addEventListener('change', () => applyStyle(row, sel.value)); // 변경시 반영
+  }
+
+  function init(){
+    const tbody = document.getElementById('tableBody');
+    if (!tbody) return;
+    tbody.querySelectorAll('tr').forEach(wireRow); // 기존 행
+    new MutationObserver(muts => {                 // 신규 행 자동 연결
+      muts.forEach(m => m.addedNodes.forEach(n => {
+        if (n.nodeType === 1 && n.tagName === 'TR') wireRow(n);
+      }));
+    }).observe(tbody, { childList: true });
+  }
+
+  document.readyState === 'loading' ? 
+    document.addEventListener('DOMContentLoaded', init) : init();
+})();
+</script>
 </body>
 </html>
+
 
 
 
