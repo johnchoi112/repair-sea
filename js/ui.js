@@ -334,12 +334,19 @@ function installRowOpenDelegation() {
     // 예외 칸(체크박스/날짜/상태)은 토글하지 않음
     if (NON_TOGGLE_CELLS.has(cellIdx)) return;
 
-    // 다른 행이 열려 있으면 먼저 저장 후 닫기
-    await closeAnyOpen(e.target);
+    // ✅ 같은 행을 다시 클릭한 경우: 저장 후 닫고 종료(다시 열지 않음)
+    if (openTr === tr) {
+      await closeExpand(tr, { save: true });
+      return;
+    }
 
-    // 해당 행 토글
-    if (openTr === tr) await closeExpand(tr, { save: true });
-    else openExpand(tr);
+    // 다른 행이 열려 있으면 먼저 저장 후 닫기
+    if (openTr) {
+      await closeExpand(openTr, { save: true });
+    }
+
+    // 현재 클릭한 행 열기
+    openExpand(tr);
   }, true); // 캡처 단계
 }
 
@@ -349,3 +356,4 @@ if (document.readyState === "loading") {
 } else {
   installRowOpenDelegation();
 }
+
