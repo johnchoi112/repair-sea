@@ -68,6 +68,21 @@ export function updateRow(doc) {
   if (!tr) return;
   applyDataToRow(tr, doc);
 
+  const ex = tr.nextElementSibling;
+  if (ex && ex.classList.contains("expand-row")) {
+    const sInput = ex.querySelector(".detail-symptom");
+    const dInput = ex.querySelector(".detail-diagnosis");
+    if (sInput && doc.symptom != null) sInput.value = doc.symptom || "";
+    if (dInput && doc.diagnosis != null) dInput.value = doc.diagnosis || "";
+
+    const img = ex.querySelector(".thumb") || ex.querySelector(".photo-preview");
+    if (img && doc.photoUrl) {
+      img.src = doc.photoUrl;
+      img.style.display = "block";
+    }
+  }
+}
+
   // 상세영역이 열려 있다면 내부도 동기화
   const ex = tr.nextElementSibling;
   if (ex && ex.classList.contains("expand-row")) {
@@ -120,7 +135,9 @@ function buildExpandRow(tr) {
         <!-- 사진 -->
         <div class="detail-cell">
           <div class="photo-box">
-            <img class="photo-preview" alt="사진 미리보기" />
+            <div class="thumb-wrap">
+              <img class="thumb" alt="사진 미리보기" />
+            </div>
             <input class="photo-input" type="file" accept="image/*" hidden />
             <button type="button" class="photo-btn">사진추가</button>
           </div>
@@ -140,36 +157,57 @@ function buildExpandRow(tr) {
   `;
   ex.appendChild(td);
 
-  // 초기 데이터 주입 (숨김 셀에서 읽음)
+  // 초기 데이터 주입(숨김 셀에서 가져옴)
   const sym = tr.cells[7]?.innerText || "";
   const dia = tr.cells[8]?.innerText || "";
   td.querySelector(".detail-symptom").value = sym;
   td.querySelector(".detail-diagnosis").value = dia;
 
-  const img = td.querySelector(".photo-preview");
-  const url = tr.dataset.photoUrl || "";
-  if (url) img.src = url; else img.style.display = "none";
+  // 썸네일 초기화
+  const thumb = td.querySelector(".thumb");
+  const currentUrl = tr.dataset.photoUrl || "";
+  if (currentUrl) {
+    thumb.src = currentUrl;
+    thumb.style.display = "block";
+  } else {
+    thumb.style.display = "none";
+  }
 
-  // 사진 업로드
+  // 사진 버튼/업로드
   const btn = td.querySelector(".photo-btn");
   const fileInput = td.querySelector(".photo-input");
   btn.addEventListener("click", () => fileInput.click());
+
   fileInput.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // 1) 즉시 썸네일(로컬) 표시
+    const localUrl = URL.createObjectURL(file);
+    thumb.src = localUrl;
+    thumb.style.display = "block";
+
     try {
+      // 2) Storage 업로드 → 영구 URL 취득
       const url = await uploadRowPhoto(id, file);
       tr.dataset.photoUrl = url;
-      img.src = url; img.style.display = "block";
+
+      // 3) 영구 URL로 교체
+      thumb.src = url;
     } catch (err) {
       console.error("사진 업로드 실패:", err);
       alert("사진 업로드 중 오류가 발생했습니다.");
+      // 실패 시 썸네일 숨김(선택)
+      // thumb.style.display = "none";
     } finally {
+      URL.revokeObjectURL(localUrl);
       e.target.value = "";
     }
   });
 
-  injectOnceStyles(); // 스타일 1회 주입
+  // 스타일 1회 주입
+  injectOnceStyles();
+
   return ex;
 }
 
@@ -304,6 +342,51 @@ function injectOnceStyles() {
   `;
   document.head.appendChild(style);
 }
+
+/* 사진 영역(썸네일) */
+.photo-box {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  border: 1px dashed #c7d2fe;
+  border-radius: 8px;
+  background: #f9fbff;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;   /* 썸네일 느낌(잘 차는) — 필요시 contain 으로 변경 */
+  border-radius: 6px;
+}
+
+.photo-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg,#2196F3,#1976D2);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+
 // 최초 1회 즉시 삽입
 injectOnceStyles();
 
@@ -356,4 +439,5 @@ if (document.readyState === "loading") {
 } else {
   installRowOpenDelegation();
 }
+
 
