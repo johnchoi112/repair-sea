@@ -11,12 +11,12 @@ import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-
 
 // ⚠️ storageBucket을 반드시 appspot.com으로!
 export const firebaseConfig = {
-  apiKey: "당신의_API_KEY",
+  apiKey: "AIzaSyDu8Vndai1pzgxehi-JC2RKaGyOJpiJJXo",
   authDomain: "searepair-a8528.firebaseapp.com",
   projectId: "searepair-a8528",
   storageBucket: "searepair-a8528.appspot.com",   // ✅ 교정
-  messagingSenderId: "당신의_SENDER_ID",
-  appId: "당신의_APP_ID"
+  messagingSenderId: "274727078627",
+  appId: "1:274727078627:web:6f857f5e3ce6f1ab1613d6"
 };
 
 export const app = initializeApp(firebaseConfig);
@@ -35,3 +35,4 @@ export {
   collection, addDoc, doc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, getDocs
 };
+
