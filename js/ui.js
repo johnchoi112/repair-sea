@@ -45,8 +45,9 @@ export function createRowHTML() {
 export function renderNewRow(doc) {
   const tr = document.createElement("tr");
   tr.dataset.id = doc.id;
-  if (doc.photoUrl) tr.dataset.photoUrl = doc.photoUrl; // 상세영역 초기 이미지용
   tr.innerHTML = createRowHTML();
+  // ✅ 새로고침 후 상세창에서도 썸네일이 보이도록 초기 렌더 때 반드시 주입
+  tr.dataset.photoUrl = doc.photoUrl || "";
   applyDataToRow(tr, doc);
   tbody().appendChild(tr);
   attachRowListeners(tr);
@@ -63,7 +64,8 @@ export function applyDataToRow(tr, data) {
     else if (sel) sel.value = v;
     else cell.innerText = v;
   });
-  if (data.photoUrl) tr.dataset.photoUrl = data.photoUrl; // 상세영역 이미지 동기화
+  // ✅ 항상 최신 URL을 보관 (빈 값이면 빈 문자열로 덮어써 동기화)
+  tr.dataset.photoUrl = (data.photoUrl ?? "");
 }
 
 export function updateRow(doc) {
@@ -78,10 +80,12 @@ export function updateRow(doc) {
     const dInput = ex.querySelector(".detail-diagnosis");
     if (sInput && doc.symptom != null) sInput.value = doc.symptom || "";
     if (dInput && doc.diagnosis != null) dInput.value = doc.diagnosis || "";
+
     const img = ex.querySelector(".thumb") || ex.querySelector(".photo-preview");
-    if (img && doc.photoUrl) {
-      img.src = doc.photoUrl;
-      img.style.display = "block";
+    if (img) {
+      const url = doc.photoUrl || "";
+      if (url) { img.src = url; img.style.display = "block"; }
+      else { img.removeAttribute("src"); img.style.display = "none"; }
     }
   }
 }
@@ -154,7 +158,7 @@ function buildExpandRow(tr) {
   td.querySelector(".detail-symptom").value = sym;
   td.querySelector(".detail-diagnosis").value = dia;
 
-  // 썸네일 초기화
+  // ✅ 썸네일 초기화: tr의 data-photo-url을 신뢰
   const thumb = td.querySelector(".thumb");
   const currentUrl = tr.dataset.photoUrl || "";
   if (currentUrl) { thumb.src = currentUrl; thumb.style.display = "block"; }
@@ -173,12 +177,11 @@ function buildExpandRow(tr) {
 
     try {
       const url = await uploadRowPhoto(id, file);
-      tr.dataset.photoUrl = url;
-      thumb.src = url; // 영구 URL로 교체
+      tr.dataset.photoUrl = url;          // ✅ DOM에도 즉시 반영
+      thumb.src = url;                    // 영구 URL로 교체
     } catch (err) {
       console.error("사진 업로드 실패:", err);
       alert("사진 업로드 중 오류가 발생했습니다.");
-      // 필요 시: thumb.style.display = "none";
     } finally {
       URL.revokeObjectURL(localUrl);
       e.target.value = "";
