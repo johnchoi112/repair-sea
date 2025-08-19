@@ -385,12 +385,56 @@ function injectOnceStyles() {
   document.head.appendChild(style);
 }
 
+/* 본문 셀은 포인터 커서 + 선택 방지 → 상세열기 의도 강화 */
+#mainTable tbody tr:not(.expand-row) td { cursor: pointer; user-select: none; }
+#mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; user-select: auto; } /* 체크박스 칸 */
+
 // 최초 1회 즉시 삽입 (컬럼 숨김이 곧바로 적용되도록)
 injectOnceStyles();
 
 // -------------------- 7) 디바운스 --------------------
 function debounce(fn, ms = 400) {
   let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// === 추가: 테이블 전역 클릭 델리게이션(캡처 단계) ===
+function installRowOpenDelegation() {
+  const table = document.getElementById("mainTable");
+  if (!table) return;
+
+  // 캡처 단계에서 먼저 가로챔 → 내부 인풋/셀 편집 요소가 클릭을 먹어도 여기서 토글됨
+  table.addEventListener("click", async (e) => {
+    // 상세행 내부 클릭은 무시
+    const expand = e.target.closest("tr.expand-row");
+    if (expand) return;
+
+    // 본문 tr 찾기
+    const tr = e.target.closest("#mainTable tbody tr");
+    if (!tr) return;
+
+    // 첫 번째(체크박스) 셀 클릭은 토글하지 않음
+    const td = e.target.closest("td");
+    const isFirstCell = td && td.cellIndex === 0;
+    const isRowCheck = !!e.target.closest("input.rowCheck");
+    if (isFirstCell || isRowCheck) return;
+
+    // 다른 행이 열려 있으면 먼저 저장 후 닫기
+    await closeAnyOpen(e.target);
+
+    // 해당 행 토글
+    if (openTr === tr) {
+      await closeExpand(tr, { save: true });
+    } else {
+      openExpand(tr);
+    }
+  }, true); // ← 캡처 단계
+}
+
+// 문서 준비 후 1회 설치
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", installRowOpenDelegation);
+} else {
+  installRowOpenDelegation();
 }
 
 
