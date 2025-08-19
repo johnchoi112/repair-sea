@@ -9,7 +9,7 @@ const COL_KEYS = ["_check", ...schemaKeys];
 
 // -------------------- 1) 표 행 템플릿 --------------------
 export function createRowHTML() {
-  // ⚠️ 구조 유지, "증상(8), 진단 결과(9)"는 CSS로 숨김 처리
+  // 구조 유지, "증상(8), 진단 결과(9)"는 CSS로 숨김 처리
   return `
     <td><input type="checkbox" class="rowCheck" /></td>
     <td><input type="date" data-key="receiptDate"/></td>
@@ -268,7 +268,7 @@ export function exposeFilter() {
   };
 }
 
-// -------------------- 6) "증상/진단 결과" 컬럼 숨김 + 상세영역 스타일 --------------------
+// -------------------- 6) 스타일: 컬럼 숨김 + 본문 차단 + 예외컬럼 허용 --------------------
 let _styleInjected = false;
 function injectOnceStyles() {
   if (_styleInjected) return;
@@ -308,22 +308,44 @@ function injectOnceStyles() {
       box-shadow: 0 4px 12px rgba(0,0,0,.15);
     }
 
-    /* 본문 입력 포인터 비활성(체크박스만 예외) */
+    /* =========================
+     * 본문 입력/클릭 차단 (상세창 유도)
+     * ========================= */
+    /* 기본적으로 본문 내 입력/셀렉트/텍스트/컨텐츠에디트 비활성화 */
     #mainTable tbody tr:not(.expand-row) input,
     #mainTable tbody tr:not(.expand-row) select,
     #mainTable tbody tr:not(.expand-row) textarea,
     #mainTable tbody tr:not(.expand-row) [contenteditable] {
       pointer-events: none !important;
     }
+    /* 체크박스만 항상 허용 */
     #mainTable tbody tr:not(.expand-row) input.rowCheck {
       pointer-events: auto !important;
     }
 
-    /* 클릭 타깃 넓게 + 의도 강조 */
+    /* 셀 전체는 클릭 타깃(상세열기)로 사용 */
     #mainTable tbody tr:not(.expand-row) td { cursor: pointer; user-select: none; }
     #mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; user-select: auto; }
 
-    /* 체크박스 사용성 향상 */
+    /* =========================
+     * 예외 컬럼: 본문에서 직접 조작 허용
+     * 2: 접수일자, 3: 발송일자, 10: 상태, 13: 수리완료일
+     * ========================= */
+    #mainTable tbody tr:not(.expand-row) td:nth-child(2) input,
+    #mainTable tbody tr:not(.expand-row) td:nth-child(3) input,
+    #mainTable tbody tr:not(.expand-row) td:nth-child(10) select,
+    #mainTable tbody tr:not(.expand-row) td:nth-child(13) input {
+      pointer-events: auto !important;
+    }
+    /* 예외 컬럼은 상세열기 커서 제거 */
+    #mainTable tbody tr:not(.expand-row) td:nth-child(2),
+    #mainTable tbody tr:not(.expand-row) td:nth-child(3),
+    #mainTable tbody tr:not(.expand-row) td:nth-child(10),
+    #mainTable tbody tr:not(.expand-row) td:nth-child(13) {
+      cursor: default;
+    }
+
+    /* 체크박스 사용성 향상(그대로 유지) */
     #mainTable th:first-child, #mainTable td:first-child { width: 56px; min-width: 56px; }
     #mainTable input.rowCheck, #checkAll {
       width: 20px; height: 20px; transform: scale(1.4); transform-origin: center; cursor: pointer;
@@ -332,7 +354,7 @@ function injectOnceStyles() {
   `;
   document.head.appendChild(style);
 }
-// 최초 1회 즉시 삽입 (컬럼 숨김이 곧바로 적용되도록)
+// 최초 1회 즉시 삽입
 injectOnceStyles();
 
 // -------------------- 7) 디바운스 --------------------
@@ -345,7 +367,10 @@ function installRowOpenDelegation() {
   const table = document.getElementById("mainTable");
   if (!table) return;
 
-  // 캡처 단계에서 먼저 가로챔 → 내부 요소가 클릭을 먹어도 여기서 토글됨
+  // 예외 컬럼(0-based cellIndex)
+  const NON_TOGGLE_CELLS = new Set([0, 1, 2, 9, 12]); 
+  // 0: 체크박스, 1: 접수일자, 2: 발송일자, 9: 상태, 12: 수리완료일
+
   table.addEventListener("click", async (e) => {
     // 상세행 내부 클릭은 무시
     const expand = e.target.closest("tr.expand-row");
@@ -355,11 +380,11 @@ function installRowOpenDelegation() {
     const tr = e.target.closest("#mainTable tbody tr");
     if (!tr) return;
 
-    // 첫 번째(체크박스) 셀 클릭은 토글하지 않음
     const td = e.target.closest("td");
-    const isFirstCell = td && td.cellIndex === 0;
-    const isRowCheck = !!e.target.closest("input.rowCheck");
-    if (isFirstCell || isRowCheck) return;
+    const cellIdx = td ? td.cellIndex : -1;
+
+    // 예외 칸(체크박스/날짜/상태)은 토글하지 않음
+    if (NON_TOGGLE_CELLS.has(cellIdx)) return;
 
     // 다른 행이 열려 있으면 먼저 저장 후 닫기
     await closeAnyOpen(e.target);
