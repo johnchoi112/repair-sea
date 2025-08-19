@@ -6,10 +6,13 @@ const checkAll = () => document.getElementById("checkAll");
 
 // 내부 컬럼 키 배열 (행 렌더링용)
 const COL_KEYS = ["_check", ...schemaKeys];
+// 0:체크, 1:접수일자, 2:발송일자, 3:거래처, 4:품번, 5:품명, 6:규격,
+// 7:증상(hidden), 8:진단 결과(hidden), 9:상태, 10:수리요청자, 11:연락처,
+// 12:수리완료일, 13:수리비용, 14:비고
 
 // -------------------- 1) 표 행 템플릿 --------------------
 export function createRowHTML() {
-  // 구조 유지. 본문 편집 금지를 위해 contenteditable 제거
+  // 본문 편집 금지를 위해 contenteditable 제거
   // (증상/진단 결과는 CSS로 숨김, 상세창에서만 편집)
   return `
     <td><input type="checkbox" class="rowCheck" /></td>
@@ -68,21 +71,6 @@ export function updateRow(doc) {
   if (!tr) return;
   applyDataToRow(tr, doc);
 
-  const ex = tr.nextElementSibling;
-  if (ex && ex.classList.contains("expand-row")) {
-    const sInput = ex.querySelector(".detail-symptom");
-    const dInput = ex.querySelector(".detail-diagnosis");
-    if (sInput && doc.symptom != null) sInput.value = doc.symptom || "";
-    if (dInput && doc.diagnosis != null) dInput.value = doc.diagnosis || "";
-
-    const img = ex.querySelector(".thumb") || ex.querySelector(".photo-preview");
-    if (img && doc.photoUrl) {
-      img.src = doc.photoUrl;
-      img.style.display = "block";
-    }
-  }
-}
-
   // 상세영역이 열려 있다면 내부도 동기화
   const ex = tr.nextElementSibling;
   if (ex && ex.classList.contains("expand-row")) {
@@ -90,8 +78,11 @@ export function updateRow(doc) {
     const dInput = ex.querySelector(".detail-diagnosis");
     if (sInput && doc.symptom != null) sInput.value = doc.symptom || "";
     if (dInput && doc.diagnosis != null) dInput.value = doc.diagnosis || "";
-    const img = ex.querySelector(".photo-preview");
-    if (img && doc.photoUrl) img.src = doc.photoUrl;
+    const img = ex.querySelector(".thumb") || ex.querySelector(".photo-preview");
+    if (img && doc.photoUrl) {
+      img.src = doc.photoUrl;
+      img.style.display = "block";
+    }
   }
 }
 
@@ -157,7 +148,7 @@ function buildExpandRow(tr) {
   `;
   ex.appendChild(td);
 
-  // 초기 데이터 주입(숨김 셀에서 가져옴)
+  // 초기 데이터 주입 (숨김 셀에서 읽음)
   const sym = tr.cells[7]?.innerText || "";
   const dia = tr.cells[8]?.innerText || "";
   td.querySelector(".detail-symptom").value = sym;
@@ -166,48 +157,35 @@ function buildExpandRow(tr) {
   // 썸네일 초기화
   const thumb = td.querySelector(".thumb");
   const currentUrl = tr.dataset.photoUrl || "";
-  if (currentUrl) {
-    thumb.src = currentUrl;
-    thumb.style.display = "block";
-  } else {
-    thumb.style.display = "none";
-  }
+  if (currentUrl) { thumb.src = currentUrl; thumb.style.display = "block"; }
+  else { thumb.style.display = "none"; }
 
-  // 사진 버튼/업로드
+  // 사진 업로드 (즉시 썸네일 → 업로드 후 영구 URL 교체)
   const btn = td.querySelector(".photo-btn");
   const fileInput = td.querySelector(".photo-input");
   btn.addEventListener("click", () => fileInput.click());
-
   fileInput.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 1) 즉시 썸네일(로컬) 표시
     const localUrl = URL.createObjectURL(file);
-    thumb.src = localUrl;
-    thumb.style.display = "block";
+    thumb.src = localUrl; thumb.style.display = "block";
 
     try {
-      // 2) Storage 업로드 → 영구 URL 취득
       const url = await uploadRowPhoto(id, file);
       tr.dataset.photoUrl = url;
-
-      // 3) 영구 URL로 교체
-      thumb.src = url;
+      thumb.src = url; // 영구 URL로 교체
     } catch (err) {
       console.error("사진 업로드 실패:", err);
       alert("사진 업로드 중 오류가 발생했습니다.");
-      // 실패 시 썸네일 숨김(선택)
-      // thumb.style.display = "none";
+      // 필요 시: thumb.style.display = "none";
     } finally {
       URL.revokeObjectURL(localUrl);
       e.target.value = "";
     }
   });
 
-  // 스타일 1회 주입
-  injectOnceStyles();
-
+  injectOnceStyles(); // 스타일 1회 주입
   return ex;
 }
 
@@ -236,7 +214,7 @@ async function closeExpand(tr, { save = true } = {}) {
 async function closeAnyOpen(eTarget) {
   if (!openTr) return;
   const ex = openTr.nextElementSibling;
-  if (ex && ex.contains(eTarget)) return;
+  if (ex && ex.contains(eTarget)) return; // 상세박스 내부 클릭이면 무시
   await closeExpand(openTr, { save: true });
 }
 
@@ -255,11 +233,9 @@ export function attachRowListeners(tr) {
   tr.querySelectorAll("input[data-key], select[data-key]").forEach(el => {
     el.addEventListener("change", e => handler(e.target));
   });
-
-  // ※ contenteditable 제거로 blur 핸들러 불필요. 남겨도 무방하지만 여기선 제거.
 }
 
-// 바깥 클릭 시 열림 닫기 + 저장
+// 테이블 밖 클릭 시 열림 닫기 + 저장
 document.addEventListener("click", async (e) => {
   const mainTable = document.getElementById("mainTable");
   if (mainTable && mainTable.contains(e.target)) return; // 테이블 내부 클릭은 아래 델리게이션에서 처리
@@ -282,7 +258,7 @@ export function exposeFilter() {
   };
 }
 
-// -------------------- 6) 스타일: 컬럼 숨김 + 본문 차단 + 예외컬럼 허용 --------------------
+// -------------------- 6) 스타일: 컬럼 숨김 + 본문 차단 + 예외컬럼 허용 + 썸네일 --------------------
 let _styleInjected = false;
 function injectOnceStyles() {
   if (_styleInjected) return;
@@ -302,9 +278,22 @@ function injectOnceStyles() {
     .detail-cell { background: #ffffff; border: 1px solid #e3eaf5; border-radius: 8px; padding: 10px; }
     .detail-label { display:block; font-weight:700; margin-bottom:6px; }
     .detail-text { width:100%; min-height:160px; resize:vertical; border:1px solid #ddd; border-radius:6px; padding:8px; font-size:.95rem; color:#000; }
-    .photo-box { position:relative; width:100%; height:180px; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px dashed #c7d2fe; border-radius:8px; background:#f9fbff; }
-    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; }
-    .photo-btn { position:absolute; bottom:10px; right:10px; border:0; border-radius:6px; padding:8px 12px; font-weight:700; color:#fff; background:linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,.15); }
+
+    /* 사진 썸네일 영역 */
+    .photo-box {
+      position: relative; width: 100%; height: 180px;
+      border: 1px dashed #c7d2fe; border-radius: 8px; background: #f9fbff;
+      overflow: hidden; display: flex; align-items: center; justify-content: center;
+    }
+    .thumb-wrap { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; }
+    .thumb { display:block; width:100%; height:100%; object-fit: cover; border-radius:6px; }
+    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; } /* 구버전 호환 */
+    .photo-btn {
+      position: absolute; bottom: 10px; right: 10px;
+      border:0; border-radius:6px; padding:8px 12px; font-weight:700; color:#fff;
+      background: linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,.15);
+    }
 
     /* 본문 클릭/편집 차단 (상세창 유도) */
     #mainTable tbody tr:not(.expand-row) td { cursor: pointer; user-select: none; }
@@ -335,58 +324,15 @@ function injectOnceStyles() {
       cursor: default;
     }
 
-    /* 체크박스 사용성 향상(유지) */
+    /* 체크박스 사용성 향상 */
     #mainTable th:first-child, #mainTable td:first-child { width: 56px; min-width: 56px; }
-    #mainTable input.rowCheck, #checkAll { width: 20px; height: 20px; transform: scale(1.4); transform-origin: center; cursor: pointer; }
+    #mainTable input.rowCheck, #checkAll {
+      width: 20px; height: 20px; transform: scale(1.4); transform-origin: center; cursor: pointer;
+    }
     #mainTable input.rowCheck { margin: 6px; }
   `;
   document.head.appendChild(style);
 }
-
-/* 사진 영역(썸네일) */
-.photo-box {
-  position: relative;
-  width: 100%;
-  height: 180px;
-  border: 1px dashed #c7d2fe;
-  border-radius: 8px;
-  background: #f9fbff;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.thumb-wrap {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.thumb {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;   /* 썸네일 느낌(잘 차는) — 필요시 contain 으로 변경 */
-  border-radius: 6px;
-}
-
-.photo-btn {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  border: 0;
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg,#2196F3,#1976D2);
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0,0,0,.15);
-}
-
 // 최초 1회 즉시 삽입
 injectOnceStyles();
 
@@ -417,7 +363,7 @@ function installRowOpenDelegation() {
     // 예외 칸(체크박스/날짜/상태)은 토글하지 않음
     if (NON_TOGGLE_CELLS.has(cellIdx)) return;
 
-    // ✅ 같은 행을 다시 클릭한 경우: 저장 후 닫고 종료(다시 열지 않음)
+    // ✅ 같은 행 재클릭 → 저장 후 닫고 종료(다시 열지 않음)
     if (openTr === tr) {
       await closeExpand(tr, { save: true });
       return;
@@ -439,5 +385,3 @@ if (document.readyState === "loading") {
 } else {
   installRowOpenDelegation();
 }
-
-
