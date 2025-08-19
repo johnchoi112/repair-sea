@@ -255,10 +255,6 @@ export function attachRowListeners(tr) {
     el.addEventListener("blur", e => handler(e.target));
   });
 
-  // ✅ 행 클릭 → 상세영역 토글
-  tr.addEventListener("click", async (e) => {
-    if (!shouldToggleByClick(e)) return;
-
     // 이미 열려있던 다른 행 닫기(저장)
     await closeAnyOpen(e.target);
 
@@ -385,10 +381,6 @@ function injectOnceStyles() {
   document.head.appendChild(style);
 }
 
-/* 본문 셀은 포인터 커서 + 선택 방지 → 상세열기 의도 강화 */
-#mainTable tbody tr:not(.expand-row) td { cursor: pointer; user-select: none; }
-#mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; user-select: auto; } /* 체크박스 칸 */
-
 // 최초 1회 즉시 삽입 (컬럼 숨김이 곧바로 적용되도록)
 injectOnceStyles();
 
@@ -436,5 +428,6 @@ if (document.readyState === "loading") {
 } else {
   installRowOpenDelegation();
 }
+
 
 
