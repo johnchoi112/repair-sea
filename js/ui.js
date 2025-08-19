@@ -359,6 +359,28 @@ function injectOnceStyles() {
     }
     #mainTable tbody tr:not(.expand-row) td { cursor: pointer; }
     #mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; }
+    
+    /* === 체크박스 사용성 향상 === */
+    /* 1) 첫 번째 열을 넓혀 스케일된 체크박스가 잘리지 않게 */
+    #mainTable th:first-child,
+    #mainTable td:first-child {
+      width: 56px;
+      min-width: 56px;
+    }
+
+    /* 2) 행 체크박스와 전체선택 체크박스 크게 */
+    #mainTable input.rowCheck,
+    #checkAll {
+      width: 20px;           /* 기본 크기 지정 */
+      height: 20px;
+      transform: scale(1.4); /* 실제 표시 크기 확대 */
+      transform-origin: center;
+      cursor: pointer;
+    }
+    /* 3) 행 체크박스 주변에 여백을 줘서 누르기 쉽게 */
+    #mainTable input.rowCheck {
+      margin: 6px;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -370,4 +392,5 @@ injectOnceStyles();
 function debounce(fn, ms = 400) {
   let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
+
 
