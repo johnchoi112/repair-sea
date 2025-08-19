@@ -9,8 +9,7 @@ const COL_KEYS = ["_check", ...schemaKeys];
 
 // -------------------- 1) 표 행 템플릿 --------------------
 export function createRowHTML() {
-  // ⚠️ 기존 컬럼은 유지하되, "증상(8), 진단 결과(9)"는 JS로 '숨김' 처리합니다.
-  // (헤더 인덱스/필터 함수 호환성 유지를 위함)
+  // ⚠️ 구조 유지, "증상(8), 진단 결과(9)"는 CSS로 숨김 처리
   return `
     <td><input type="checkbox" class="rowCheck" /></td>
     <td><input type="date" data-key="receiptDate"/></td>
@@ -221,24 +220,9 @@ async function closeAnyOpen(eTarget) {
   await closeExpand(openTr, { save: true });
 }
 
-function shouldToggleByClick(e) {
-  const t = e.target;
-  if (!t) return false;
-  // 입력/버튼/셀렉트/이미지 등 인터랙티브 요소 클릭 시 행 토글 방지
-  if (
-    t.tagName === "INPUT" || t.tagName === "SELECT" ||
-    t.tagName === "TEXTAREA" || t.tagName === "BUTTON" ||
-    t.closest(".detail-wrap") || t.closest(".photo-box") ||
-    t.closest(".filter-input")
-  ) return false;
-  // contenteditable 셀 클릭도 제외
-  if (t.isContentEditable || t.closest("[contenteditable]")) return false;
-  return true;
-}
-
 // -------------------- 4) 이벤트 바인딩 --------------------
 export function attachRowListeners(tr) {
-  // 기존 에디트 → 저장(디바운스) 로직
+  // (저장만 담당) 입력/셀렉트 변경 → 필드 업데이트
   const handler = debounce(async (target) => {
     const key = target.dataset.key;
     if (!key) return;
@@ -254,27 +238,13 @@ export function attachRowListeners(tr) {
   tr.querySelectorAll("[contenteditable][data-key]").forEach(el => {
     el.addEventListener("blur", e => handler(e.target));
   });
-
-    // 이미 열려있던 다른 행 닫기(저장)
-    await closeAnyOpen(e.target);
-
-    if (openTr === tr) {
-      // 동일 행 재클릭 → 닫기(저장)
-      await closeExpand(tr, { save: true });
-    } else {
-      openExpand(tr);
-    }
-  });
 }
 
 // 바깥 클릭 시 열림 닫기 + 저장
 document.addEventListener("click", async (e) => {
-  // 테이블 내부에서 체크박스/입력 조작 시에는 무시
+  // 테이블 내부에서의 클릭은 행 토글 델리게이션에서 처리
   const mainTable = document.getElementById("mainTable");
-  if (mainTable && mainTable.contains(e.target)) {
-    // 행 클릭 로직에서 처리됨
-    return;
-  }
+  if (mainTable && mainTable.contains(e.target)) return;
   await closeAnyOpen(e.target);
 });
 
@@ -338,12 +308,7 @@ function injectOnceStyles() {
       box-shadow: 0 4px 12px rgba(0,0,0,.15);
     }
 
-    /* ============================
-     * 핵심: 본문(기존 행) 클릭 불가 처리
-     *  - tbody 행 안의 입력/셀편집 요소는 포인터 비활성
-     *  - 체크박스(.rowCheck)만 정상 클릭 허용
-     *  - 셀은 커서만 포인터로 보여 행 클릭(상세 열기) 유도
-     * ============================ */
+    /* 본문 입력 포인터 비활성(체크박스만 예외) */
     #mainTable tbody tr:not(.expand-row) input,
     #mainTable tbody tr:not(.expand-row) select,
     #mainTable tbody tr:not(.expand-row) textarea,
@@ -353,34 +318,20 @@ function injectOnceStyles() {
     #mainTable tbody tr:not(.expand-row) input.rowCheck {
       pointer-events: auto !important;
     }
-    #mainTable tbody tr:not(.expand-row) td { cursor: pointer; }
-    #mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; }
-    
-    /* === 체크박스 사용성 향상 === */
-    /* 1) 첫 번째 열을 넓혀 스케일된 체크박스가 잘리지 않게 */
-    #mainTable th:first-child,
-    #mainTable td:first-child {
-      width: 56px;
-      min-width: 56px;
-    }
 
-    /* 2) 행 체크박스와 전체선택 체크박스 크게 */
-    #mainTable input.rowCheck,
-    #checkAll {
-      width: 20px;           /* 기본 크기 지정 */
-      height: 20px;
-      transform: scale(1.4); /* 실제 표시 크기 확대 */
-      transform-origin: center;
-      cursor: pointer;
+    /* 클릭 타깃 넓게 + 의도 강조 */
+    #mainTable tbody tr:not(.expand-row) td { cursor: pointer; user-select: none; }
+    #mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; user-select: auto; }
+
+    /* 체크박스 사용성 향상 */
+    #mainTable th:first-child, #mainTable td:first-child { width: 56px; min-width: 56px; }
+    #mainTable input.rowCheck, #checkAll {
+      width: 20px; height: 20px; transform: scale(1.4); transform-origin: center; cursor: pointer;
     }
-    /* 3) 행 체크박스 주변에 여백을 줘서 누르기 쉽게 */
-    #mainTable input.rowCheck {
-      margin: 6px;
-    }
+    #mainTable input.rowCheck { margin: 6px; }
   `;
   document.head.appendChild(style);
 }
-
 // 최초 1회 즉시 삽입 (컬럼 숨김이 곧바로 적용되도록)
 injectOnceStyles();
 
@@ -389,12 +340,12 @@ function debounce(fn, ms = 400) {
   let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-// === 추가: 테이블 전역 클릭 델리게이션(캡처 단계) ===
+// -------------------- 8) 테이블 전역 클릭 델리게이션(캡처 단계) --------------------
 function installRowOpenDelegation() {
   const table = document.getElementById("mainTable");
   if (!table) return;
 
-  // 캡처 단계에서 먼저 가로챔 → 내부 인풋/셀 편집 요소가 클릭을 먹어도 여기서 토글됨
+  // 캡처 단계에서 먼저 가로챔 → 내부 요소가 클릭을 먹어도 여기서 토글됨
   table.addEventListener("click", async (e) => {
     // 상세행 내부 클릭은 무시
     const expand = e.target.closest("tr.expand-row");
@@ -428,6 +379,3 @@ if (document.readyState === "loading") {
 } else {
   installRowOpenDelegation();
 }
-
-
-
