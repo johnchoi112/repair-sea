@@ -1,37 +1,37 @@
 // js/firebase.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  // ✅ 최신 Firestore 초기화 & 로컬 캐시
-  initializeFirestore, persistentLocalCache,
-  // 나머지 유틸들 (data.js 등에서 사용)
-  serverTimestamp, collection, addDoc, doc, updateDoc, deleteDoc,
+  getFirestore,
+  serverTimestamp,
+  collection, addDoc, doc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {
-  getAuth, signInAnonymously, onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-/** 👉 Firebase 콘솔의 구성값을 그대로 사용 */
+// ⚠️ storageBucket을 반드시 appspot.com으로!
 export const firebaseConfig = {
-  apiKey: "AIzaSyDu8Vndai1pzgxehi-JC2RKaGyOJpiJJXo",
+  apiKey: "당신의_API_KEY",
   authDomain: "searepair-a8528.firebaseapp.com",
   projectId: "searepair-a8528",
-  storageBucket: "searepair-a8528.firebasestorage.app",
-  messagingSenderId: "274727078627",
-  appId: "1:274727078627:web:6f857f5e3ce6f1ab1613d6"
+  storageBucket: "searepair-a8528.appspot.com",   // ✅ 교정
+  messagingSenderId: "당신의_SENDER_ID",
+  appId: "당신의_APP_ID"
 };
 
 export const app = initializeApp(firebaseConfig);
 
-// ✅ getFirestore 대신 최신 방식 사용 (경고 없음)
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache()
-});
-
+// Firestore / Auth
+export const db = getFirestore(app);
 export const auth = getAuth(app);
+signInAnonymously(auth).catch(console.error);
 
-// 다른 모듈에서 편하게 쓰도록 재수출
+// Storage (버킷을 명시적으로 지정하여 오타 여지 제거)
+export const storage = getStorage(app, "gs://searepair-a8528.appspot.com");
+
+// 다른 모듈에서 편하게 쓰도록 내보내기
 export {
-  serverTimestamp, collection, addDoc, doc, updateDoc, deleteDoc,
-  onSnapshot, query, orderBy, getDocs, signInAnonymously, onAuthStateChanged
+  serverTimestamp,
+  collection, addDoc, doc, updateDoc, deleteDoc,
+  onSnapshot, query, orderBy, getDocs
 };
