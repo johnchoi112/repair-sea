@@ -309,13 +309,13 @@ function injectOnceStyles() {
   _styleInjected = true;
   const style = document.createElement("style");
   style.textContent = `
-    /* 컬럼 숨김: 8=증상, 9=진단 결과 (thead/tbody 동시에) */
+    /* [증상], [진단 결과] 컬럼 숨김(헤더/바디) */
     #mainTable th:nth-child(8), #mainTable td:nth-child(8),
     #mainTable th:nth-child(9), #mainTable td:nth-child(9) {
       display: none !important;
     }
 
-    /* 상세 박스 */
+    /* 상세 박스(아코디언) 스타일 */
     .expand-row > td { padding: 12px 16px; background: #f8faff; border-top: 1px solid #e3eaf5; }
     .detail-wrap { min-height: 200px; }
     .detail-grid {
@@ -333,7 +333,6 @@ function injectOnceStyles() {
       border: 1px solid #ddd; border-radius: 6px; padding: 8px;
       font-size: .95rem; color: #000;
     }
-
     .photo-box { position: relative; width: 100%; height: 180px; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px dashed #c7d2fe; border-radius:8px; background:#f9fbff; }
     .photo-preview { max-width: 100%; max-height: 100%; object-fit: contain; }
     .photo-btn {
@@ -342,9 +341,28 @@ function injectOnceStyles() {
       background: linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer;
       box-shadow: 0 4px 12px rgba(0,0,0,.15);
     }
+
+    /* ============================
+     * 핵심: 본문(기존 행) 클릭 불가 처리
+     *  - tbody 행 안의 입력/셀편집 요소는 포인터 비활성
+     *  - 체크박스(.rowCheck)만 정상 클릭 허용
+     *  - 셀은 커서만 포인터로 보여 행 클릭(상세 열기) 유도
+     * ============================ */
+    #mainTable tbody tr:not(.expand-row) input,
+    #mainTable tbody tr:not(.expand-row) select,
+    #mainTable tbody tr:not(.expand-row) textarea,
+    #mainTable tbody tr:not(.expand-row) [contenteditable] {
+      pointer-events: none !important;
+    }
+    #mainTable tbody tr:not(.expand-row) input.rowCheck {
+      pointer-events: auto !important;
+    }
+    #mainTable tbody tr:not(.expand-row) td { cursor: pointer; }
+    #mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; }
   `;
   document.head.appendChild(style);
 }
+
 // 최초 1회 즉시 삽입 (컬럼 숨김이 곧바로 적용되도록)
 injectOnceStyles();
 
@@ -352,3 +370,4 @@ injectOnceStyles();
 function debounce(fn, ms = 400) {
   let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
+
