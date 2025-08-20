@@ -595,5 +595,74 @@ function injectOnceStyles() {
     if (isOpen) await closeExpand(tr, { save: true });
     else openExpand(tr);
   });
+
+  /* === UI 오버라이드: 정렬박스 한 줄 + 체크박스 크게 === */
+(function injectUiOverrides() {
+  if (document.getElementById("uiFix-sort-and-checkbox")) return;
+  const s = document.createElement("style");
+  s.id = "uiFix-sort-and-checkbox";
+  s.textContent = `
+    /* 정렬 바 pill이 줄바꿈되지 않게 고정 */
+    #sortBar .select { 
+      white-space: nowrap !important; 
+      min-width: 210px;           /* 한 줄 유지 폭 */
+      padding: 10px 14px;         /* 높이/여백 보정 */
+    }
+    #sortBar label,
+    #sortBar select { white-space: nowrap !important; }
+    #sortBar { gap: 12px; }       /* pill 사이 간격 약간 넓힘 */
+
+    /* 체크박스 크기 복원(조금 더 큼) */
+    #mainTable th:first-child,
+    #mainTable td:first-child { width: 68px; min-width: 68px; } /* 여백 확보 */
+    #mainTable input.rowCheck, 
+    #checkAll {
+      width: 24px; 
+      height: 24px; 
+      transform: scale(1.7) !important;  /* 크기 키움 */
+      transform-origin: center;
+      cursor: pointer;
+      accent-color: #2563eb;             /* 체크 색상(옵션) */
+    }
+    #mainTable input.rowCheck { margin: 8px; }
+  `;
+  document.head.appendChild(s);
+});
+
+  /* === UI 오버라이드: 정렬박스 한 줄 + 체크박스 크게 (보완) === */
+(function () {
+  const id = "uiFix-sort-and-checkbox-2";
+  if (document.getElementById(id)) return;
+  const s = document.createElement("style");
+  s.id = id;
+  s.textContent = `
+    /* 정렬 pill이 절대 줄바꿈되지 않도록 추가 고정 */
+    #sortBar .select{
+      white-space: nowrap !important;
+      min-width: 210px;      /* 필요시 220~240 으로만 조정 */
+      padding: 10px 14px;
+      flex: 0 0 auto;        /* flex 수축 방지 */
+      line-height: 1;        /* label 두 줄 깨짐 예방 */
+    }
+    #sortBar label,
+    #sortBar select{ white-space: nowrap !important; }
+    #sortBar{ gap: 12px; }
+
+    /* 체크박스 크게 */
+    #mainTable th:first-child,
+    #mainTable td:first-child{ width: 68px; min-width: 68px; }
+    #mainTable input.rowCheck,
+    #checkAll{
+      width: 24px;
+      height: 24px;
+      transform: scale(1.7) !important;
+      transform-origin: center;
+      cursor: pointer;
+      accent-color: #2563eb;
+    }
+    #mainTable input.rowCheck{ margin: 8px; }
+  `;
+  document.head.appendChild(s);
 })();
 
+  
