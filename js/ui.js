@@ -261,26 +261,60 @@ export function exposeFilter() {
   };
 }
 
-/* -------------------- 6) 정렬 바 주입 -------------------- */
+/* -------------------- 6) 정렬 바 주입 (카드 바깥 우측 정렬) -------------------- */
 (function injectSortBar() {
   const table = document.getElementById("mainTable");
   if (!table || document.getElementById("sortBar")) return;
 
+  // 1) "카드(테두리/그림자/라운드)"로 보이는 가장 가까운 조상 탐색
+  function findCardAncestor(el) {
+    let cur = el.parentElement;
+    while (cur && cur !== document.body) {
+      const cs = getComputedStyle(cur);
+      const hasShadow = cs.boxShadow && cs.boxShadow !== "none";
+      const hasRadius = parseFloat(cs.borderTopLeftRadius) > 0 || parseFloat(cs.borderTopRightRadius) > 0;
+      const solidBg = (() => {
+        const c = cs.backgroundColor.trim();
+        return c !== "rgba(0, 0, 0, 0)" && c !== "transparent";
+      })();
+      // 카드로 판단(그림자/라운드/불투명 배경 중 하나라도 있으면)
+      if (hasShadow || hasRadius || solidBg) return cur;
+      cur = cur.parentElement;
+    }
+    return table.parentElement; // 실패 시 바로 바깥 컨테이너
+  }
+
+  // 2) 카드 앞에 호스트를 만들어 같은 가로폭/위치에 정렬 바를 배치
+  const card = findCardAncestor(table);
+  const host = document.createElement("div");
+  host.id = "sortBarHost";
+  host.style.position = "relative"; // 좌표 기준
+  host.style.zIndex = "2";
+  // 카드 바로 "앞"에 삽입 → 테두리 바깥
+  card.parentNode.insertBefore(host, card);
+
+  // 3) 정렬 바 DOM
   const bar = document.createElement("div");
   bar.id = "sortBar";
   bar.innerHTML = `
     <style>
-      #sortBar { display:flex; justify-content:flex-end; align-items:center; gap:10px; margin:10px 6px 6px; }
-      #sortBar .select { display:flex; align-items:center; gap:6px; background:#ffffff; border:1px solid #d7ddea; border-radius:20px; padding:6px 10px; box-shadow:0 2px 10px rgba(0,0,0,.04); }
+      /* host는 카드와 같은 폭/위치로 스크립트에서 맞춰줍니다 */
+      #sortBar { display:flex; justify-content:flex-end; align-items:center; gap:10px;
+                 padding: 6px 0 8px; }
+      #sortBar .select { display:flex; align-items:center; gap:6px; background:#ffffff;
+                         border:1px solid #d7ddea; border-radius:20px; padding:6px 10px;
+                         box-shadow:0 2px 10px rgba(0,0,0,.04); }
       #sortBar label { font-weight:700; color:#4a4f63; font-size:.9rem; }
       #sortBar select { border:0; background:transparent; padding:4px 4px; font-weight:700; color:#1b4ae8; outline:none; }
       #sortBar .chip-area { display:flex; align-items:center; gap:6px; margin-right:auto; }
       #sortBar .chip { display:none; align-items:center; gap:6px; padding:6px 10px; border-radius:18px;
-                       background:linear-gradient(135deg,#e3f2fd,#e8eaf6); color:#0d47a1; font-weight:800; border:1px solid #cbd5ff; }
-      #sortBar .chip .x { cursor:pointer; width:18px; height:18px; border-radius:50%; background:#0d47a1; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
-      #sortBar .reset { border:0; background:#eef2ff; color:#334155; font-weight:800; border-radius:20px; padding:8px 12px; cursor:pointer; }
+                       background:linear-gradient(135deg,#e3f2fd,#e8eaf6); color:#0d47a1; font-weight:800;
+                       border:1px solid #cbd5ff; }
+      #sortBar .chip .x { cursor:pointer; width:18px; height:18px; border-radius:50%; background:#0d47a1;
+                          color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+      #sortBar .reset { border:0; background:#eef2ff; color:#334155; font-weight:800; border-radius:20px;
+                        padding:8px 12px; cursor:pointer; }
       #sortBar .reset:hover { background:#e0e7ff; }
-      @media (max-width:980px){ #sortBar { flex-wrap:wrap; justify-content:flex-start; } .chip-area{margin-right:0;} }
     </style>
 
     <div class="chip-area">
@@ -316,11 +350,32 @@ export function exposeFilter() {
 
     <button id="btnSortReset" class="reset" type="button">정렬 해제</button>
   `;
+  host.appendChild(bar);
 
-  // 테이블 바로 앞에 삽입 (오른쪽 정렬)
-  table.parentNode.insertBefore(bar, table);
+  // 4) 카드의 화면 위치/폭에 맞춰 host 정렬 (반응형 대응)
+  const align = () => {
+    const r = card.getBoundingClientRect();
+    const scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+    // host를 카드와 같은 폭/왼쪽에 맞춤 → "바깥"이지만 시각적으로 같은 정렬
+    host.style.width = `${r.width}px`;
+    host.style.margin = "0"; // 부모 흐름 그대로
+    host.style.left = `${r.left + scrollX}px`;
+    host.style.transform = `translateX(0)`; // 초기화
+    host.style.position = "relative";
+    // host를 문서의 동일 행에 두기 위해 block + 상단 여백
+    host.style.display = "block";
+    host.style.marginBottom = "6px";
+  };
+  // 스크롤은 left 위치에 영향을 주지 않게 relative를 썼으므로 resize만 관여
+  const onResize = (() => {
+    let t = null;
+    return () => { clearTimeout(t); t = setTimeout(align, 60); };
+  })();
+  window.addEventListener("resize", onResize);
+  // 최초 정렬
+  align();
 
-  // 이벤트: 셀렉트 변경 → 단일 정렬(하나 선택 시 나머지는 기본순으로 되돌림)
+  // 5) 이벤트 연결(기능 동일) — 기존 코드 그대로
   const selReceipt = bar.querySelector("#selReceipt");
   const selShip = bar.querySelector("#selShip");
   const selComplete = bar.querySelector("#selComplete");
@@ -332,19 +387,16 @@ export function exposeFilter() {
 
   selReceipt.addEventListener("change", () => {
     resetOthers(selReceipt);
-    applySort(selReceipt.value === "none" ? null : { col: COL_RECEIPT, dir: selReceipt.value });
+    applySort(selReceipt.value === "none" ? null : { col: 2, dir: selReceipt.value }); // 접수일자
   });
-
   selShip.addEventListener("change", () => {
     resetOthers(selShip);
-    applySort(selShip.value === "none" ? null : { col: COL_SHIP, dir: selShip.value });
+    applySort(selShip.value === "none" ? null : { col: 3, dir: selShip.value }); // 발송일자
   });
-
   selComplete.addEventListener("change", () => {
     resetOthers(selComplete);
-    applySort(selComplete.value === "none" ? null : { col: COL_COMPLETE, dir: selComplete.value });
+    applySort(selComplete.value === "none" ? null : { col: 13, dir: selComplete.value }); // 수리완료일
   });
-
   btnReset.addEventListener("click", () => {
     [selReceipt, selShip, selComplete].forEach(sel => sel.value = "none");
     applySort(null);
@@ -544,3 +596,4 @@ function injectOnceStyles() {
     else openExpand(tr);
   });
 })();
+
