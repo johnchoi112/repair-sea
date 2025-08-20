@@ -1,167 +1,268 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <title>SEA Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#667eea" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SEA 수리&재가공 현황 (실시간 Firestore 연동)</title>
+ <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
+<link rel="manifest" href="./site.webmanifest">
+<style>
+  * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+  body { background: #f5f7fa; margin: 0; padding: 20px; }
+  .container { max-width: 2000px; margin: 0 auto; }
+  .header { text-align: center; padding: 20px; margin-bottom: 60px;
+            border-radius: 15px; color:#fff;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 8px 32px rgba(0,0,0,.1); position: relative; }
+  .header h1 { margin: 0; font-size: 2.1rem; font-weight: 800; letter-spacing: .02em; }
 
-  <style>
-    :root {
-      --brand: #667eea;
-      --bg: #0f172a;
-      --panel: #111827;
-      --text: #e5e7eb;
-      --muted: #94a3b8;
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
-    }
+  .controls { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; margin-top: 60px; }
+  .btn { padding: 10px 16px; border:0; border-radius:8px; color:#fff; cursor:pointer; font-weight:700;
+         box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+  .btn-add { background: linear-gradient(135deg, #4CAF50, #45a049); }
+  .btn-del { background: linear-gradient(135deg, #f44336, #da190b); }
+  .btn-reg { background: linear-gradient(135deg, #2196F3, #1976D2); }
 
-    html, body { height: 100%; background: var(--bg); color: var(--text); }
-    body { margin: 0; font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Apple SD Gothic Neo, Noto Sans KR, sans-serif; -webkit-text-size-adjust: 100%; }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  .table-container { background:#fff; border-radius:15px; box-shadow:0 8px 32px rgba(0,0,0,.08); overflow:hidden; max-height: 650px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; table-layout: auto; }
+  th, td { border:1px solid #e0e0e0; text-align:center; padding:10px 6px; }
+  thead th { position: sticky; top:0; z-index:10; color:#fff;
+             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  tr:nth-child(even) { background:#fafafa; }
+  tr:hover { background:#f1f6ff; }
 
-    .container { max-width: 1280px; margin: 0 auto; padding: clamp(8px, 2vw, 20px); }
-    .header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
-    .title { font-weight: 700; font-size: 18px; margin-right: auto; }
-    .controls { display: flex; gap: 8px; }
+  input[type="date"], select { width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:6px; font-size:.9rem; color: #000; }
+  .filter-input { width: 100%; padding: 5px 6px; border:1px solid #ddd; border-radius:6px; margin-top:6px; font-size:.8rem; }
 
-    /* 버튼/인풋: 모바일 터치 타깃 44px 이상 */
-    button, .btn, input, select, textarea {
-      min-height: 44px;
-      font-size: 16px; /* iOS 확대 방지 */
-      border-radius: 10px;
-      border: 1px solid #1f2937;
-      background: #0b1220;
-      color: var(--text);
-      padding: 10px 14px;
-    }
-    button.primary {
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      border: none;
-      color: white;
-      font-weight: 700;
-      box-shadow: 0 6px 18px rgba(102,126,234,.35);
-      cursor: pointer;
-    }
-    button.primary:active { transform: translateY(1px); }
+  [contenteditable] { padding:6px; min-height:24px; border:1px solid transparent; border-radius:6px; }
+  [contenteditable]:hover { border-color:#e3e3e3; }
+  [contenteditable]:focus { outline:0; border-color:#2196F3; background:#fff3e0; }
 
-    /* 테이블 영역 */
-    .table-wrapper {
-      border: 1px solid #1f2937;
-      border-radius: 14px;
-      background: rgba(17,24,39,.5);
-      overflow: clip;
-    }
-    .table-toolbar { display:flex; flex-wrap:wrap; gap:8px; padding: 10px; border-bottom: 1px solid #1f2937; background: rgba(11,18,32,.75); }
-    .table-container {
-      overflow-x: auto;       /* 모바일 가로 스크롤 허용 */
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      max-height: calc(100vh - 260px);
-    }
+  /* 너비 튜닝 */
+  #mainTable th:nth-child(4),  #mainTable td:nth-child(4)  { min-width: 100px; } /* 거래처 */
+  #mainTable th:nth-child(5),  #mainTable td:nth-child(5)  { min-width: 100px; } /* 품번 */
+  #mainTable th:nth-child(6),  #mainTable td:nth-child(6)  { min-width: 100px; } /* 품명 */
+  #mainTable th:nth-child(7),  #mainTable td:nth-child(7)  { min-width: 130px; } /* 규격 */
+  #mainTable th:nth-child(10), #mainTable td:nth-child(10) { min-width: 160px; } /* 상태 */
+  #mainTable th:nth-child(11), #mainTable td:nth-child(11) { min-width: 60px; }  /* 수리요청자 */
+  #mainTable th:nth-child(12), #mainTable td:nth-child(12) { min-width: 100px; } /* 연락처 */
+  #mainTable th:nth-child(14), #mainTable td:nth-child(14) { min-width: 60px; }  /* 수리비용 */
+  #mainTable th:nth-child(15), #mainTable td:nth-child(15) { min-width: 100px; } /* 비고 */
 
-    table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 980px; color: var(--text); }
-    thead th {
-      position: sticky; top: 0; z-index: 10; text-align: left;
-      padding: 12px; background: #0b1220; border-bottom: 1px solid #1f2937; font-weight: 700;
-    }
-    tbody td { padding: 10px 12px; border-bottom: 1px solid #1f2937; vertical-align: top; }
-    tbody tr:hover { background: rgba(102,126,234,.08); }
+  /* 모달 */
+  .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; }
+  .modal-content { width: 420px; max-width: calc(100vw - 40px); margin: 5% auto; background:#fff; border-radius:12px;
+                   padding: 16px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .modal-header { text-align:center; font-weight:800; margin-bottom:12px; }
+  .modal-table { width:100%; border-collapse: collapse; table-layout: fixed; }
+  .modal-table th, .modal-table td { border:1px solid #eee; padding:6px 8px; font-size:.9rem; text-align:center; }
+  .modal-table th { width: 110px; background:#fafafa; }
+  .modal-input { width: 100%; padding:6px 8px; border:1px solid #ddd; border-radius:6px; color: #000; }
+  .modal-footer { text-align:center; margin-top:10px; }
+  .modal-btn { padding:9px 16px; border:0; border-radius:6px; cursor:pointer; color:#fff; font-weight:700; }
+  .ok { background: linear-gradient(135deg, #4CAF50, #45a049); }
+  .cancel { background: linear-gradient(135deg, #f44336, #da190b); margin-left:6px; }
 
-    /* 확장(아코디언) 행 */
-    .expand { background: rgba(2,6,23,.6); }
-    .expand > td { padding: 0; }
-    .expand-inner { padding: 12px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+ .sub-desc {
+  margin-top: 6px;
+  font-size: 0.95rem;
+  color: #f0f0f0;
+  font-weight: 400;
+}
 
-    /* 모달 */
-    .modal {
-      position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.45);
-      padding: 20px; z-index: 1000;
-    }
-    .modal[open] { display: grid; }
-    .modal-content {
-      width: min(96vw, 720px);
-      max-height: 90svh; /* 모바일 주소창 변화 대응 */
-      overflow: auto;
-      background: #0b1220; border: 1px solid #1f2937; border-radius: 14px; padding: 16px;
-      padding-bottom: calc(16px + var(--safe-bottom));
-    }
-    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top: 16px; }
+.author {
+  position: absolute;
+  right: 30px;
+  top: 16px; /* 기존 26px에서 줄임 */
+  font-size: 0.9rem;
+  color: #ffffff;
+  font-weight: bold;
+  text-align: right;
+  line-height: 1.2;
+}
 
-    /* 모바일 간격 소형화 */
-    @media (max-width: 640px) {
-      .header { margin-bottom: 12px; }
-      .controls { gap: 6px; }
-    }
+.header {
+  position: relative; /* author 위치 고정용 */
+  text-align: center;
+  padding: 20px;
+  margin-bottom: 30px;
+  border-radius: 15px;
+  color: #fff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 8px 32px rgba(0,0,0,.1);
+}
 
-    /* 모바일에서 데스크톱 전용 요소 숨김 훅 (필요 시) */
-    @media (pointer: coarse) and (max-width: 820px) {
-      [data-desktop-only] { display: none !important; }
-    }
-  </style>
+.header .logo {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 64px;
+  width: auto;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* 한 단계 더 진하게 */
+tr.row-status-received { background: linear-gradient(90deg, #cfe2ff 0%, #e0ecff 100%) !important; }
+tr.row-status-repairing { background: linear-gradient(90deg, #cdebd6 0%, #e2f5ea 100%) !important; }
+tr.row-status-free     { background: linear-gradient(90deg, #ffeec6 0%, #ffe7b0 100%) !important; }
+tr.row-status-paid     { background: linear-gradient(90deg, #dcdcdc 0%, #e9e9e9 100%) !important; }
+
+
+/* 호버색이 덮지 않도록 동일 유지 */
+tr.row-status-received:hover,
+tr.row-status-repairing:hover,
+tr.row-status-free:hover,
+tr.row-status-paid:hover { filter: brightness(1.0); }
+
+ /* 표 행 배경 전환: 부드럽게 */
+#mainTable tbody tr { transition: background 240ms ease-in-out; }
+
+</style>
 </head>
-
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="title">SEA 접수 관리</div>
-      <div class="controls">
-        <button id="btnAdd" class="primary">신규 접수</button>
-      </div>
-    </div>
+<div class="header">
+ <img src="./logo.avif" alt="SEA logo" class="logo" />
+  <h1>SEA 수리&재가공 현황</h1>
+  <p class="sub-desc">
+    이 웹사이트는 자재팀과 구매팀을 위한 실시간 수리·재가공 현황 관리용 웹사이트 입니다.
+  </p>
+  <div class="author">
+    <strong>made by JH</strong> <span class="contact">(010-4747-2421)</span>
+  </div>
+</div>
 
-    <div class="table-wrapper">
-      <div class="table-toolbar">
-        <input id="filterInput" placeholder="검색(이름/상태 등)..." />
-      </div>
-      <div class="table-container">
-        <table id="mainTable" aria-label="접수 목록">
-          <thead>
-            <tr>
-              <th style="width:120px">상태</th>
-              <th>이름</th>
-              <th>연락처</th>
-              <th>접수일</th>
-              <th style="width:120px">사진</th>
-              <th style="width:80px">상세</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
+<div class="controls">
+  <button class="btn btn-add" id="btnAdd">[행 추가]</button>
+  <button class="btn btn-del" id="btnDelete">[행 삭제]</button>
+  <button class="btn btn-reg" id="btnOpen">[접수]</button>
+</div>
+
+  <div class="table-container">
+    <table id="mainTable">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="checkAll" /></th>
+          <th>접수일자<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(1,this.value)" /></th>
+          <th>발송일자<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(2,this.value)" /></th>
+          <th>거래처<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(3,this.value)" /></th>
+          <th>품번<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(4,this.value)" /></th>
+          <th>품명<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(5,this.value)" /></th>
+          <th>규격<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(6,this.value)" /></th>
+          <th>증상<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(7,this.value)" /></th>
+          <th>진단 결과<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(8,this.value)" /></th>
+          <th>상태<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(9,this.value)" /></th>
+          <th>수리 요청자<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(10,this.value)" /></th>
+          <th>연락처<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(11,this.value)" /></th>
+          <th>수리완료일<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(12,this.value)" /></th>
+          <th>수리비용<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(13,this.value)" /></th>
+          <th>비고<br/><input class="filter-input" placeholder="필터" onkeyup="filterTable(14,this.value)" /></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <!-- 실시간으로 Firestore 문서를 렌더링합니다 -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 접수 모달 -->
+<div id="registerModal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="registerTitle"
+    aria-hidden="true">
+  <div class="modal-content" tabindex="-1">
+    <h2 class="modal-header" id="registerTitle">신규 접수 등록</h2>
+    <table class="modal-table">
+      <tr><th>접수일자</th><td><input id="mReceipt" type="date" class="modal-input" /></td></tr>
+      <tr><th>거래처</th><td><input id="mCompany" type="text" class="modal-input" maxlength="50" /></td></tr>
+      <tr><th>품번</th><td><input id="mPartNo" type="text" class="modal-input" maxlength="50" /></td></tr>
+      <tr><th>품명</th><td><input id="mPartName" type="text" class="modal-input" maxlength="100" /></td></tr>
+      <tr><th>규격</th><td><input id="mSpec" type="text" class="modal-input" maxlength="100" /></td></tr>
+      <tr><th>증상</th><td><input id="mSymptom" type="text" class="modal-input" maxlength="200" /></td></tr>
+      <tr><th>요청인</th><td><input id="mRepairer" type="text" class="modal-input" maxlength="50" /></td></tr>
+      <tr><th>연락처</th><td><input id="mContact" type="text" class="modal-input" maxlength="50" /></td></tr>
+      <tr><th>비고</th><td><input id="mNote" type="text" class="modal-input" maxlength="300" /></td></tr>
+    </table>
+    <div class="modal-footer">
+      <button class="modal-btn ok" id="mOk">[확인]</button>
+      <button class="modal-btn cancel" id="mCancel">[취소]</button>
     </div>
   </div>
+</div>
+ <script type="module" src="./js/main.js"></script>
+<script>
+(function(){
+  const MAP = {
+    "접수완료": "row-status-received",
+    "수리 중": "row-status-repairing",
+    "수리중": "row-status-repairing",
+    "무상수리완료": "row-status-free",
+    "유상수리완료": "row-status-paid"
+  };
+  const ALL = Object.values(MAP);
 
-  <!-- 신규 접수 모달 -->
-  <dialog id="registerModal" class="modal" aria-modal="true">
-    <div class="modal-content" role="document">
-      <h3 style="margin:0 0 12px 0;">신규 접수</h3>
-      <form id="registerForm">
-        <div style="display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(220px,1fr));">
-          <label>이름
-            <input name="name" required />
-          </label>
-          <label>연락처
-            <input name="phone" inputmode="tel" />
-          </label>
-          <label>상태
-            <select name="status">
-              <option value="접수">접수</option>
-              <option value="진행중">진행중</option>
-              <option value="완료">완료</option>
-            </select>
-          </label>
-        </div>
-        <div class="modal-actions">
-          <button type="button" id="btnCancel">취소</button>
-          <button type="submit" class="primary">확인</button>
-        </div>
-      </form>
-    </div>
-  </dialog>
+  function applyStyle(row, value){
+    row.classList.remove(...ALL);
+    const cls = MAP[(value||"").trim()];
+    if (cls) row.classList.add(cls); // 값 없으면(=선택) 기존 바탕색
+  }
 
-  <script type="module" src="./main.js"></script>
+  function wireRow(row){
+    const sel = row && row.querySelector('select[data-key="status"]');
+    if (!sel || sel._rowStyleWired) return;
+    sel._rowStyleWired = true;
+    applyStyle(row, sel.value);                 // 초기값 반영
+    sel.addEventListener('change', () => applyStyle(row, sel.value)); // 변경시 반영
+  }
+
+  function init(){
+    const tbody = document.getElementById('tableBody');
+    if (!tbody) return;
+    tbody.querySelectorAll('tr').forEach(wireRow); // 기존 행
+    new MutationObserver(muts => {                 // 신규 행 자동 연결
+      muts.forEach(m => m.addedNodes.forEach(n => {
+        if (n.nodeType === 1 && n.tagName === 'TR') wireRow(n);
+      }));
+    }).observe(tbody, { childList: true });
+  }
+
+  document.readyState === 'loading' ? 
+    document.addEventListener('DOMContentLoaded', init) : init();
+})();
+</script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
