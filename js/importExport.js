@@ -1,5 +1,6 @@
 // js/importExport.js
 import { fetchAllRows, addRowDoc, schemaKeys } from "./data.js";
+import { loadScript, yyyymmdd, csvEscape } from "./utils.js";
 
 /** 한국어 헤더 ↔ 필드 키 매핑 */
 const HEADER_TO_KEY = {
@@ -12,7 +13,7 @@ const HEADER_TO_KEY = {
   "증상": "symptom",
   "진단 결과": "diagnosis",
   "상태": "status",
-  // 둘 다 허용(화면 표기가 '수리 담당자' 또는 '수리 요청자'인 경우 모두 대응)
+  // 표기 차이 허용
   "수리 담당자": "repairer",
   "수리 요청자": "repairer",
   "연락처": "contact",
@@ -22,20 +23,19 @@ const HEADER_TO_KEY = {
 };
 const KEY_TO_HEADER = Object.fromEntries(Object.entries(HEADER_TO_KEY).map(([k,v]) => [v,k]));
 
-// --- 안전한 XLSX 로더: 로컬 우선, 실패 시 cdnjs ---
+// 안전한 XLSX 로더(로컬 → CDN 폴백)
 async function loadXLSX() {
   const CANDIDATES = [
-    { type: "umd", url: "./vendor/xlsx.full.min.js" }, // 로컬(권장)
-    { type: "umd", url: "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" } // 폴백
+    { type: "umd", url: "./vendor/xlsx.full.min.js" },
+    { type: "umd", url: "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" }
   ];
-
   let lastErr = null;
   for (const c of CANDIDATES) {
     try {
       await loadScript(c.url);
-      if (window.XLSX && window.XLSX.utils && window.XLSX.writeFile) {
+      if (window.XLSX?.utils && window.XLSX.writeFile) {
         console.info("[XLSX] 로드 성공:", c.url);
-        return window.XLSX;            // ✅ 함수 안에서만 return
+        return window.XLSX;
       }
     } catch (e) {
       lastErr = e;
@@ -44,21 +44,6 @@ async function loadXLSX() {
   }
   throw lastErr || new Error("XLSX 로드 실패");
 }
-
-// <script> 태그로 UMD 스크립트 로드
-function loadScript(src, timeoutMs = 15000) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.crossOrigin = "anonymous";
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-    setTimeout(() => reject(new Error("Script load timeout: " + src)), timeoutMs);
-  });
-}
-
 
 /* -------------------- UI 주입 (FAB) -------------------- */
 export function injectImportExportUI() {
@@ -71,14 +56,14 @@ export function injectImportExportUI() {
       #ieFab .btn { border:0; border-radius:28px; padding:12px 16px; color:#fff; font-weight:800; cursor:pointer;
                     box-shadow: 0 6px 18px rgba(0,0,0,.18); margin-left:8px; }
       #btnExport { background: linear-gradient(135deg,#4caf50,#2e8b57); }
-      #btnImport { background: linear-gradient(135deg,#ff9800,#f57c00); }
       #btnCsv    { background: linear-gradient(135deg,#2196f3,#1976d2); }
+      #btnImport { background: linear-gradient(135deg,#ff9800,#f57c00); }
       #ieHiddenInput { display:none; }
     </style>
     <button class="btn" id="btnExport">엑셀 내보내기</button>
     <button class="btn" id="btnCsv">CSV 내보내기</button>
     <button class="btn" id="btnImport">가져오기</button>
-    <input type="file" id="ieHiddenInput" accept=".xlsx,.xls,.csv" />
+    <input type="file" id="ieHiddenInput" accept=".xlsx,xls,csv" />
   `;
   document.body.appendChild(fab);
 
@@ -97,7 +82,7 @@ async function exportXLSX() {
     const data = [schemaKeys.map(k => KEY_TO_HEADER[k] || k)];
     rows.forEach(r => data.push(schemaKeys.map(k => r[k] ?? "")));
 
-    const XLSX = await loadXLSX(); // ✅ 견고한 로더
+    const XLSX = await loadXLSX();
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, "SEA");
@@ -117,11 +102,6 @@ async function exportCSV() {
   downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `SEA_export_${yyyymmdd()}.csv`);
 }
 
-function csvEscape(v) {
-  const s = String(v ?? "");
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-}
-
 /* -------------------- 가져오기: CSV/XLSX -------------------- */
 async function handleImportFile(e) {
   const file = e.target.files?.[0];
@@ -133,7 +113,7 @@ async function handleImportFile(e) {
     if (name.endsWith(".csv")) {
       rows = await parseCSV(file);
     } else {
-      const XLSX = await loadXLSX(); // ✅ 동일 로더 사용
+      const XLSX = await loadXLSX();
       const ab = await file.arrayBuffer();
       const wb = XLSX.read(ab, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -152,7 +132,7 @@ async function handleImportFile(e) {
   }
 }
 
-/* -------------------- 보조 함수들 -------------------- */
+/* -------------------- 보조 -------------------- */
 async function parseCSV(file) {
   const text = await file.text();
   const lines = text.split(/\r?\n/).filter(Boolean);
@@ -165,9 +145,10 @@ async function parseCSV(file) {
     return obj;
   });
 }
+
 function splitCsvLine(line) {
   const res = []; let cur = ""; let inQ = false;
-  for (let i=0;i<line.length;i++){
+  for (let i = 0; i < line.length; i++) {
     const ch = line[i];
     if (inQ) {
       if (ch === '"' && line[i+1] === '"') { cur += '"'; i++; }
@@ -182,6 +163,7 @@ function splitCsvLine(line) {
   res.push(cur);
   return res;
 }
+
 function mapToSchema(record) {
   const out = {};
   Object.entries(record).forEach(([h, v]) => {
@@ -191,6 +173,7 @@ function mapToSchema(record) {
   schemaKeys.forEach(k => { if (record[k] != null) out[k] = record[k]; });
   return out;
 }
+
 function downloadBlob(blob, filename) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -198,10 +181,3 @@ function downloadBlob(blob, filename) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-function yyyymmdd(d = new Date()){
-  const p = n => n.toString().padStart(2,"0");
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
-}
-
-
-
