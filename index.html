@@ -133,6 +133,53 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
   #mainTable { min-width: 1100px; }
 }
 
+ /* === 모바일 헤더: 축소 + 상단 고정(기능 영향 없음) ===================== */
+@media (max-width: 820px) {
+  /* 헤더를 상단에 고정(sticky). 페이지/내부 스크롤과 충돌 없음 */
+  .header {
+    position: sticky;    /* 기존 relative → sticky */
+    top: 0;
+    z-index: 50;         /* 테이블, 버튼보다 위 */
+    padding: 12px 16px;  /* 높이 축소 */
+    margin-bottom: 16px;
+    border-radius: 12px;
+    overflow: hidden;    /* 내부 요소 넘침 방지 */
+  }
+
+  /* 로고 더 작게 + 여백 감소 */
+  .header .logo {
+    left: 12px;          /* 기존 24px → 12px */
+    height: 36px;        /* 기존 64px → 36px */
+  }
+
+  /* 제목/설명/작성자 폰트 축소 */
+  .header h1 {
+    font-size: 1.25rem;  /* 기존 2.1rem에서 축소 */
+    margin: 0;
+    line-height: 1.1;
+    word-break: keep-all;
+  }
+  .sub-desc {
+    font-size: .80rem;   /* 기존 0.95rem에서 축소 */
+    margin-top: 4px;
+  }
+  .author {
+    top: 8px;            /* 기존 16px → 8px */
+    right: 12px;         /* 기존 30px → 12px */
+    font-size: .75rem;
+    line-height: 1.1;
+  }
+}
+
+/* 초소형 기기(세로 360~400px)에서 한 단계 더 축소 */
+@media (max-width: 400px) {
+  .header { padding: 10px 12px; }
+  .header .logo { height: 30px; left: 10px; }
+  .header h1 { font-size: 1.1rem; }
+  .sub-desc { font-size: .74rem; }
+  .author { font-size: .7rem; top: 6px; right: 10px; }
+}
+
 </style>
 </head>
 <body>
@@ -250,6 +297,7 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
 </script>
 </body>
 </html>
+
 
 
 
