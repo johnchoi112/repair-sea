@@ -11,6 +11,13 @@ const COL_KEYS = ["_check", ...schemaKeys];
 // 7:증상(hidden), 8:진단 결과(hidden), 9:상태, 10:수리요청자, 11:연락처,
 // 12:수리완료일, 13:수리비용, 14:비고
 
+/* ======== 정렬 컬럼 (1-based, nth-child 기준) ======== */
+const COL_RECEIPT = 2; // 접수일자
+const COL_SHIP = 3;    // 발송일자
+const COL_COMPLETE = 13; // 수리완료일
+
+let activeSort = { col: null, dir: "asc" }; // dir: 'asc'|'desc'
+
 /* -------------------- 1) 표 행 템플릿 -------------------- */
 export function createRowHTML() {
   // 본문 편집 금지(상세창 유도). 증상/진단은 CSS로 숨김
@@ -48,8 +55,15 @@ export function renderNewRow(doc) {
   tr.innerHTML = createRowHTML();
   tr.dataset.photoUrl = doc.photoUrl || ""; // 썸네일 초기값 보관
   applyDataToRow(tr, doc);
+
+  // 원래 순서 복원용 인덱스 보관
+  if (!tr.dataset.initialIndex) {
+    tr.dataset.initialIndex = String(tbody().querySelectorAll("tr:not(.expand-row)").length);
+  }
+
   tbody().appendChild(tr);
   attachRowListeners(tr);
+  maybeResort(); // 정렬 활성 시 새 행도 즉시 반영
 }
 
 export function applyDataToRow(tr, data) {
@@ -86,6 +100,7 @@ export function updateRow(doc) {
       else { img.removeAttribute("src"); img.style.display = "none"; }
     }
   }
+  maybeResort();
 }
 
 export function removeRow(id) {
@@ -246,7 +261,200 @@ export function exposeFilter() {
   };
 }
 
-/* -------------------- 6) 스타일 1회 주입 -------------------- */
+/* -------------------- 6) 정렬 바 주입 -------------------- */
+(function injectSortBar() {
+  const table = document.getElementById("mainTable");
+  if (!table || document.getElementById("sortBar")) return;
+
+  const bar = document.createElement("div");
+  bar.id = "sortBar";
+  bar.innerHTML = `
+    <style>
+      #sortBar { display:flex; justify-content:flex-end; align-items:center; gap:10px; margin:10px 6px 6px; }
+      #sortBar .select { display:flex; align-items:center; gap:6px; background:#ffffff; border:1px solid #d7ddea; border-radius:20px; padding:6px 10px; box-shadow:0 2px 10px rgba(0,0,0,.04); }
+      #sortBar label { font-weight:700; color:#4a4f63; font-size:.9rem; }
+      #sortBar select { border:0; background:transparent; padding:4px 4px; font-weight:700; color:#1b4ae8; outline:none; }
+      #sortBar .chip-area { display:flex; align-items:center; gap:6px; margin-right:auto; }
+      #sortBar .chip { display:none; align-items:center; gap:6px; padding:6px 10px; border-radius:18px;
+                       background:linear-gradient(135deg,#e3f2fd,#e8eaf6); color:#0d47a1; font-weight:800; border:1px solid #cbd5ff; }
+      #sortBar .chip .x { cursor:pointer; width:18px; height:18px; border-radius:50%; background:#0d47a1; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+      #sortBar .reset { border:0; background:#eef2ff; color:#334155; font-weight:800; border-radius:20px; padding:8px 12px; cursor:pointer; }
+      #sortBar .reset:hover { background:#e0e7ff; }
+      @media (max-width:980px){ #sortBar { flex-wrap:wrap; justify-content:flex-start; } .chip-area{margin-right:0;} }
+    </style>
+
+    <div class="chip-area">
+      <div id="sortChip" class="chip" aria-live="polite"></div>
+    </div>
+
+    <div class="select">
+      <label for="selReceipt">접수일자</label>
+      <select id="selReceipt" aria-label="접수일자 정렬">
+        <option value="none">기본순</option>
+        <option value="asc">오름차순 ↑</option>
+        <option value="desc">내림차순 ↓</option>
+      </select>
+    </div>
+
+    <div class="select">
+      <label for="selShip">발송일자</label>
+      <select id="selShip" aria-label="발송일자 정렬">
+        <option value="none">기본순</option>
+        <option value="asc">오름차순 ↑</option>
+        <option value="desc">내림차순 ↓</option>
+      </select>
+    </div>
+
+    <div class="select">
+      <label for="selComplete">수리완료일</label>
+      <select id="selComplete" aria-label="수리완료일 정렬">
+        <option value="none">기본순</option>
+        <option value="asc">오름차순 ↑</option>
+        <option value="desc">내림차순 ↓</option>
+      </select>
+    </div>
+
+    <button id="btnSortReset" class="reset" type="button">정렬 해제</button>
+  `;
+
+  // 테이블 바로 앞에 삽입 (오른쪽 정렬)
+  table.parentNode.insertBefore(bar, table);
+
+  // 이벤트: 셀렉트 변경 → 단일 정렬(하나 선택 시 나머지는 기본순으로 되돌림)
+  const selReceipt = bar.querySelector("#selReceipt");
+  const selShip = bar.querySelector("#selShip");
+  const selComplete = bar.querySelector("#selComplete");
+  const btnReset = bar.querySelector("#btnSortReset");
+
+  function resetOthers(except) {
+    [selReceipt, selShip, selComplete].forEach(sel => { if (sel !== except) sel.value = "none"; });
+  }
+
+  selReceipt.addEventListener("change", () => {
+    resetOthers(selReceipt);
+    applySort(selReceipt.value === "none" ? null : { col: COL_RECEIPT, dir: selReceipt.value });
+  });
+
+  selShip.addEventListener("change", () => {
+    resetOthers(selShip);
+    applySort(selShip.value === "none" ? null : { col: COL_SHIP, dir: selShip.value });
+  });
+
+  selComplete.addEventListener("change", () => {
+    resetOthers(selComplete);
+    applySort(selComplete.value === "none" ? null : { col: COL_COMPLETE, dir: selComplete.value });
+  });
+
+  btnReset.addEventListener("click", () => {
+    [selReceipt, selShip, selComplete].forEach(sel => sel.value = "none");
+    applySort(null);
+  });
+})();
+
+/* -------------------- 7) 정렬 핵심 로직 -------------------- */
+function parseDateFromCell(tr, nthChild) {
+  const cell = tr.cells[nthChild - 1];
+  if (!cell) return NaN;
+  const input = cell.querySelector("input[type='date']");
+  const value = (input?.value || cell.innerText || "").trim();
+
+  // 'YYYY-MM-DD'만 유효. 그 외(예: '연도-월-일' 플레이스홀더)는 무시
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return NaN;
+
+  const ts = Date.parse(value + "T00:00:00");
+  return Number.isNaN(ts) ? NaN : ts;
+}
+
+function sortByDateColumn(nthChild, dir = "asc") {
+  const rows = Array.from(tbody().querySelectorAll("tr")).filter(tr => !tr.classList.contains("expand-row"));
+  rows.forEach((tr, i) => { if (!tr.dataset.initialIndex) tr.dataset.initialIndex = String(i); });
+
+  const items = rows.map(tr => {
+    const ts = parseDateFromCell(tr, nthChild);
+    const ex = tr.nextElementSibling && tr.nextElementSibling.classList.contains("expand-row")
+      ? tr.nextElementSibling : null;
+    return {
+      tr, ex,
+      ts: Number.isNaN(ts) ? Infinity : ts, // 빈 값은 항상 맨 뒤
+      idx: Number(tr.dataset.initialIndex || "0")
+    };
+  });
+
+  const mult = dir === "desc" ? -1 : 1;
+  items.sort((a, b) => {
+    const aInf = a.ts === Infinity, bInf = b.ts === Infinity;
+    if (aInf && !bInf) return 1;
+    if (!aInf && bInf) return -1;
+    if (aInf && bInf) return a.idx - b.idx; // 둘 다 빈 값 → 원래 순서
+    if (a.ts === b.ts) return a.idx - b.idx; // 안정 정렬
+    return (a.ts - b.ts) * mult;
+  });
+
+  const frag = document.createDocumentFragment();
+  items.forEach(({ tr, ex }) => {
+    frag.appendChild(tr);
+    if (ex) frag.appendChild(ex);
+  });
+  tbody().appendChild(frag);
+}
+
+function resetSortToInitial() {
+  const rows = Array.from(tbody().querySelectorAll("tr")).filter(tr => !tr.classList.contains("expand-row"));
+  rows.sort((a, b) => Number(a.dataset.initialIndex || "0") - Number(b.dataset.initialIndex || "0"));
+  const frag = document.createDocumentFragment();
+  rows.forEach(tr => {
+    frag.appendChild(tr);
+    const ex = tr.nextElementSibling && tr.nextElementSibling.classList.contains("expand-row")
+      ? tr.nextElementSibling : null;
+    if (ex) frag.appendChild(ex);
+  });
+  tbody().appendChild(frag);
+}
+
+function applySort(state /* {col, dir} | null */) {
+  activeSort = state ? { ...state } : { col: null, dir: "asc" };
+  updateSortChip();
+  if (!state) resetSortToInitial();
+  else sortByDateColumn(state.col, state.dir);
+}
+
+function maybeResort() {
+  if (!activeSort.col) return;
+  // 현재 상태 유지 재적용
+  sortByDateColumn(activeSort.col, activeSort.dir);
+}
+
+/* -------------------- 8) 활성 정렬 태그(chip) -------------------- */
+function updateSortChip() {
+  const chip = document.getElementById("sortChip");
+  if (!chip) return;
+
+  if (!activeSort.col) {
+    chip.style.display = "none";
+    chip.textContent = "";
+    chip.onclick = null;
+    return;
+  }
+
+  const colName = activeSort.col === COL_RECEIPT ? "접수일자"
+                  : activeSort.col === COL_SHIP ? "발송일자"
+                  : "수리완료일";
+  const arrow = activeSort.dir === "asc" ? "↑" : "↓";
+  chip.innerHTML = `${colName} ${arrow} <span class="x" role="button" aria-label="정렬 해제">×</span>`;
+  chip.style.display = "inline-flex";
+  chip.querySelector(".x").onclick = () => {
+    // chip 클릭으로 정렬 해제
+    const bar = document.getElementById("sortBar");
+    if (bar) {
+      bar.querySelector("#selReceipt").value = "none";
+      bar.querySelector("#selShip").value = "none";
+      bar.querySelector("#selComplete").value = "none";
+    }
+    applySort(null);
+  };
+}
+
+/* -------------------- 9) 스타일 1회 주입 -------------------- */
 let _styleInjected = false;
 function injectOnceStyles() {
   if (_styleInjected) return;
@@ -270,7 +478,7 @@ function injectOnceStyles() {
                  overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .thumb-wrap { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; }
     .thumb { display:block; width:100%; height:100%; object-fit: cover; border-radius:6px; }
-    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; } /* 구버전 호환 */
+    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; }
     .photo-btn { position: absolute; bottom: 10px; right: 10px; border:0; border-radius:6px; padding:8px 12px; font-weight:700; color:#fff;
                  background: linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
 
@@ -307,7 +515,7 @@ function injectOnceStyles() {
   document.head.appendChild(style);
 }
 
-/* -------------------- 7) 테이블 전역 클릭 델리게이션 -------------------- */
+/* -------------------- 10) 테이블 전역 클릭 델리게이션 -------------------- */
 (function installRowOpenDelegation() {
   const table = document.getElementById("mainTable");
   if (!table) return;
