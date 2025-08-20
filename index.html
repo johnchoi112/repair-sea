@@ -206,6 +206,13 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
   .header .logo { height: 22px; left: 8px; }
   .author { font-size: 0.58rem; top: 5px; right: 6px; }
 }
+
+/* === 핸드폰에서만 SEA 로고 숨기기 (웹은 그대로) === */
+@media (pointer: coarse) and (max-width: 820px) {
+  .header .logo { 
+    display: none !important; /* 이미지/접근성 트리트먼트 모두 숨김 */
+  }
+}
  
 </style>
 </head>
@@ -324,6 +331,7 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
 </script>
 </body>
 </html>
+
 
 
 
