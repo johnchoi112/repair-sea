@@ -2,8 +2,7 @@
 import { auth, signInAnonymously, onAuthStateChanged } from "./firebase.js";
 import { addRowDoc, deleteRows, subscribeRealtime } from "./data.js";
 import { renderNewRow, updateRow, removeRow, selectedRowIds, wireCheckAll, exposeFilter } from "./ui.js";
-// ⚠️ 변경: 모바일에서 미로딩을 위해 정적 import 제거
-// import { injectImportExportUI } from "./importExport.js";
+import { injectImportExportUI } from "./importExport.js";
 
 /* ========== 모달 제어(인라인 스크립트 제거로 사라진 부분 복구) ========== */
 function getEl(id) { return document.getElementById(id); }
@@ -13,26 +12,26 @@ const mCancel = () => getEl("mCancel");
 const btnOpen = () => getEl("btnOpen");
 
 function openModal() {
-  const md = modal();
-  if (!md) return;
-  md.style.display = "block";
-  md.setAttribute("aria-hidden", "false");   // ✅ 접근성: 표시 시 false
-  document.body.style.overflow = "hidden";
+const md = modal();
+if (!md) return;
+md.style.display = "block";
+md.setAttribute("aria-hidden", "false");   // ✅ 접근성: 표시 시 false
+document.body.style.overflow = "hidden";
 
-  // 입력 초기화
-  ["mReceipt","mCompany","mPartNo","mPartName","mSpec","mSymptom","mRepairer","mContact","mNote"]
-    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+// 입력 초기화
+["mReceipt","mCompany","mPartNo","mPartName","mSpec","mSymptom","mRepairer","mContact","mNote"]
+.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
 
-  // 기본 접수일자 = 오늘
-  const today = new Date();
-  const p = n => String(n).padStart(2,"0");
-  const dstr = `${today.getFullYear()}-${p(today.getMonth()+1)}-${p(today.getDate())}`;
-  const rcv = document.getElementById("mReceipt");
-  if (rcv) rcv.value = dstr;
+// 기본 접수일자 = 오늘
+const today = new Date();
+const p = n => String(n).padStart(2,"0");
+const dstr = `${today.getFullYear()}-${p(today.getMonth()+1)}-${p(today.getDate())}`;
+const rcv = document.getElementById("mReceipt");
+if (rcv) rcv.value = dstr;
 
-  // 포커스 모달로 이동(접근성)
-  const mc = md.querySelector(".modal-content");
-  mc && mc.focus();
+// 포커스 모달로 이동(접근성)
+const mc = md.querySelector(".modal-content");
+mc && mc.focus();
 }
 
 function closeModal() {
@@ -83,32 +82,13 @@ function bindTopButtons() {
   });
 }
 
-/* ========== 변경 추가: 모바일(핸드폰) 판별 ========== */
-function isPhone() {
-  const coarse = matchMedia('(pointer: coarse)').matches;
-  const minSide = Math.min(window.screen.width, window.screen.height); // CSS px
-  return coarse && minSide <= 820; // 대부분의 스마트폰 커버, 태블릿은 제외
-}
-
 /* ========== 앱 시작 ========== */
 async function start() {
   wireCheckAll();
   exposeFilter();
-
-  // ✅ 변경: 데스크톱/태블릿에서만 가져오기/내보내기 UI 로딩
-  if (!isPhone()) {
-    try {
-      const mod = await import("./importExport.js");
-      if (typeof mod.injectImportExportUI === "function") {
-        mod.injectImportExportUI(); // 엑셀/CSV 가져오기·내보내기 버튼 주입
-      }
-    } catch (e) {
-      console.warn("importExport 모듈 로딩 실패:", e);
-    }
-  }
-
+  injectImportExportUI(); // 엑셀/CSV 가져오기·내보내기 버튼 주입
   bindTopButtons();
-  wireModal();            // ✅ 모달 이벤트 바인딩
+  wireModal();            // ✅ 모달 이벤트 바인딩 추가
 
   await signInAnonymously(auth);
   onAuthStateChanged(auth, (user) => {
@@ -128,3 +108,4 @@ if (document.readyState === "loading") {
 } else {
   start();
 }
+
