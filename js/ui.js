@@ -550,8 +550,8 @@ function injectOnceStyles() {
     #mainTable tbody tr:not(.expand-row) td:nth-child(13) { cursor: default; }
 
     /* 체크박스 사용성 향상(기본값; 아래 오버라이드로 확대) */
-    #mainTable th:first-child, #mainTable td:first-child { width: 76px; min-width: 76px; }
-    #mainTable input.rowCheck, #checkAll { width: 56px; height: 56px; transform: scale(1.7); transform-origin: center; cursor: pointer; }
+    #mainTable th:first-child, #mainTable td:first-child { width: 56px; min-width: 56px; }
+    #mainTable input.rowCheck, #checkAll { width: 20px; height: 20px; transform: scale(1.4); transform-origin: center; cursor: pointer; }
     #mainTable input.rowCheck { margin: 6px; }
   `;
   document.head.appendChild(style);
@@ -604,11 +604,24 @@ function injectOnceStyles() {
     #sortBar select { white-space: nowrap !important; }
     #sortBar { gap: 12px; }       /* pill 사이 간격 약간 넓힘 */
 
+    /* 체크박스 크기 복원(조금 더 큼) */
+    #mainTable th:first-child,
+    #mainTable td:first-child { width: 68px; min-width: 68px; } /* 여백 확보 */
+    #mainTable input.rowCheck, 
+    #checkAll {
+      width: 24px; 
+      height: 24px; 
+      transform: scale(1.7) !important;  /* 크기 키움 */
+      transform-origin: center;
+      cursor: pointer;
+      accent-color: #2563eb;             /* 체크 색상(옵션) */
+    }
+    #mainTable input.rowCheck { margin: 8px; }
   `;
   document.head.appendChild(s);
-})();
+})(); // ✅ 즉시실행 누락 보완
 
-/* === UI 오버라이드: 정렬박스 한 줄  === */
+/* === UI 오버라이드: 정렬박스 한 줄 + 체크박스 크게 (보완) === */
 (function () {
   const id = "uiFix-sort-and-checkbox-2";
   if (document.getElementById(id)) return;
@@ -626,8 +639,20 @@ function injectOnceStyles() {
     #sortBar label,
     #sortBar select{ white-space: nowrap !important; }
     #sortBar{ gap: 12px; }
+
+    /* 체크박스 크게 (중복 적용되어도 안전) */
+    #mainTable th:first-child,
+    #mainTable td:first-child{ width: 68px; min-width: 68px; }
+    #mainTable input.rowCheck,
+    #checkAll{
+      width: 24px;
+      height: 24px;
+      transform: scale(1.7) !important;
+      transform-origin: center;
+      cursor: pointer;
+      accent-color: #2563eb;
+    }
+    #mainTable input.rowCheck{ margin: 8px; }
   `;
   document.head.appendChild(s);
 })();
-
-
