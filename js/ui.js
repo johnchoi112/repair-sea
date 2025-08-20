@@ -258,3 +258,81 @@ function injectOnceStyles() {
     #mainTable th:nth-child(9), #mainTable td:nth-child(9) { display: none !important; }
 
     /* 상세 박스(아코디언) 스타일 */
+    .expand-row > td { padding: 12px 16px; background: #f8faff; border-top: 1px solid #e3eaf5; }
+    .detail-wrap { min-height: 200px; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: start; }
+    .detail-cell { background: #ffffff; border: 1px solid #e3eaf5; border-radius: 8px; padding: 10px; }
+    .detail-label { display:block; font-weight:700; margin-bottom:6px; }
+    .detail-text { width:100%; min-height:160px; resize:vertical; border:1px solid #ddd; border-radius:6px; padding:8px; font-size:.95rem; color:#000; }
+
+    /* 사진 썸네일 영역 */
+    .photo-box { position: relative; width: 100%; height: 180px; border: 1px dashed #c7d2fe; border-radius: 8px; background: #f9fbff;
+                 overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .thumb-wrap { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; }
+    .thumb { display:block; width:100%; height:100%; object-fit: cover; border-radius:6px; }
+    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; } /* 구버전 호환 */
+    .photo-btn { position: absolute; bottom: 10px; right: 10px; border:0; border-radius:6px; padding:8px 12px; font-weight:700; color:#fff;
+                 background: linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+
+    /* 본문 클릭/편집 차단 (상세열기 유도) */
+    #mainTable tbody tr:not(.expand-row) td { cursor: pointer; user-select: none; }
+    #mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; user-select: auto; }
+
+    /* 기본적으로 본문 내 폼요소 비활성화 */
+    #mainTable tbody tr:not(.expand-row) input,
+    #mainTable tbody tr:not(.expand-row) select,
+    #mainTable tbody tr:not(.expand-row) textarea,
+    #mainTable tbody tr:not(.expand-row) [contenteditable] { pointer-events: none !important; }
+
+    /* 체크박스만 항상 허용 */
+    #mainTable tbody tr:not(.expand-row) input.rowCheck { pointer-events: auto !important; }
+
+    /* 예외 컬럼(2:접수일자, 3:발송일자, 10:상태, 13:수리완료일)만 폼 조작 허용 */
+    #mainTable tbody tr:not(.expand-row) td:nth-child(2) input,
+    #mainTable tbody tr:not(.expand-row) td:nth-child(3) input,
+    #mainTable tbody tr:not(.expand-row) td:nth-child(10) select,
+    #mainTable tbody tr:not(.expand-row) td:nth-child(13) input { pointer-events: auto !important; }
+
+    /* 예외 컬럼은 상세열기 커서 제거 */
+    #mainTable tbody tr:not(.expand-row) td:nth-child(2),
+    #mainTable tbody tr:not(.expand-row) td:nth-child(3),
+    #mainTable tbody tr:not(.expand-row) td:nth-child(10),
+    #mainTable tbody tr:not(.expand-row) td:nth-child(13) { cursor: default; }
+
+    /* 체크박스 사용성 향상 */
+    #mainTable th:first-child, #mainTable td:first-child { width: 56px; min-width: 56px; }
+    #mainTable input.rowCheck, #checkAll { width: 20px; height: 20px; transform: scale(1.4); transform-origin: center; cursor: pointer; }
+    #mainTable input.rowCheck { margin: 6px; }
+  `;
+  document.head.appendChild(style);
+}
+
+/* -------------------- 7) 테이블 전역 클릭 델리게이션 -------------------- */
+(function installRowOpenDelegation() {
+  const table = document.getElementById("mainTable");
+  if (!table) return;
+
+  // 예외 컬럼(0-based): 0=체크박스, 1=접수일자, 2=발송일자, 9=상태, 12=수리완료일
+  const NON_TOGGLE_CELLS = new Set([0, 1, 2, 9, 12]);
+
+  table.addEventListener("click", async (e) => {
+    // 상세행 내부 클릭은 무시
+    const expand = e.target.closest("tr.expand-row");
+    if (expand) return;
+
+    const tr = e.target.closest("#mainTable tbody tr");
+    if (!tr) return;
+
+    const td = e.target.closest("td");
+    const cellIdx = td ? Array.from(tr.cells).indexOf(td) : -1;
+    if (cellIdx >= 0 && NON_TOGGLE_CELLS.has(cellIdx)) return;
+
+    if (openTr && openTr !== tr) {
+      await closeExpand(openTr, { save: true });
+    }
+    const isOpen = tr.nextElementSibling?.classList.contains("expand-row") &&
+                   tr.nextElementSibling?.style.display !== "none";
+    if (isOpen) await closeExpand(tr, { save: true });
+    else openExpand(tr);
+  });
+})();
