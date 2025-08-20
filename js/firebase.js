@@ -16,7 +16,7 @@ export const firebaseConfig = {
   apiKey: "AIzaSyDu8Vndai1pzgxehi-JC2RKaGyOJpiJJXo",
   authDomain: "searepair-a8528.firebaseapp.com",
   projectId: "searepair-a8528",
-  storageBucket: "searepair-a8528.appspot.com",   // ✅ 반드시 appspot.com
+  storageBucket: "searepair-a8528.firebasestorage.app",
   messagingSenderId: "274727078627",
   appId: "1:274727078627:web:6f857f5e3ce6f1ab1613d6"
 };
@@ -39,3 +39,4 @@ export {
   // Auth 유틸 (main.js에서 import)
   signInAnonymously, onAuthStateChanged
 };
+
