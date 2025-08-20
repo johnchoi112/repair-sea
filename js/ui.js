@@ -11,13 +11,6 @@ const COL_KEYS = ["_check", ...schemaKeys];
 // 7:증상(hidden), 8:진단 결과(hidden), 9:상태, 10:수리요청자, 11:연락처,
 // 12:수리완료일, 13:수리비용, 14:비고
 
-/* ======== 정렬 컬럼 (1-based, nth-child 기준) ======== */
-const COL_RECEIPT = 2;   // 접수일자
-const COL_SHIP = 3;      // 발송일자
-const COL_COMPLETE = 13; // 수리완료일
-
-let activeSort = { col: null, dir: "asc" }; // dir: 'asc'|'desc'
-
 /* -------------------- 1) 표 행 템플릿 -------------------- */
 export function createRowHTML() {
   // 본문 편집 금지(상세창 유도). 증상/진단은 CSS로 숨김
@@ -55,17 +48,8 @@ export function renderNewRow(doc) {
   tr.innerHTML = createRowHTML();
   tr.dataset.photoUrl = doc.photoUrl || ""; // 썸네일 초기값 보관
   applyDataToRow(tr, doc);
-
-  // 원래 순서 복원용 인덱스 보관
-  if (!tr.dataset.initialIndex) {
-    tr.dataset.initialIndex = String(
-      tbody().querySelectorAll("tr:not(.expand-row)").length
-    );
-  }
-
   tbody().appendChild(tr);
   attachRowListeners(tr);
-  maybeResort(); // 정렬 활성 시 새 행도 즉시 반영
 }
 
 export function applyDataToRow(tr, data) {
@@ -79,7 +63,7 @@ export function applyDataToRow(tr, data) {
     else if (sel) sel.value = v;
     else cell.innerText = v;
   });
-  tr.dataset.photoUrl = data.photoUrl ?? "";
+  tr.dataset.photoUrl = (data.photoUrl ?? "");
 }
 
 export function updateRow(doc) {
@@ -102,7 +86,6 @@ export function updateRow(doc) {
       else { img.removeAttribute("src"); img.style.display = "none"; }
     }
   }
-  maybeResort();
 }
 
 export function removeRow(id) {
@@ -121,7 +104,7 @@ export function selectedRowIds() {
 
 export function wireCheckAll() {
   checkAll()?.addEventListener("change", () => {
-    document.querySelectorAll(".rowCheck").forEach(cb => (cb.checked = checkAll().checked));
+    document.querySelectorAll(".rowCheck").forEach(cb => cb.checked = checkAll().checked);
   });
 }
 
@@ -231,15 +214,12 @@ export function attachRowListeners(tr) {
     const key = target.dataset.key;
     if (!key) return;
     const id = tr.dataset.id;
-    const value =
-      target.tagName === "INPUT" || target.tagName === "SELECT"
-        ? target.value
-        : target.innerText;
+    const value = (target.tagName === "INPUT" || target.tagName === "SELECT") ? target.value : target.innerText;
     await updateField(id, key, value);
   }, 300);
 
-  tr.querySelectorAll("input[data-key], select[data-key]").forEach((el) => {
-    el.addEventListener("change", (e) => handler(e.target));
+  tr.querySelectorAll("input[data-key], select[data-key]").forEach(el => {
+    el.addEventListener("change", e => handler(e.target));
   });
 }
 
@@ -255,7 +235,7 @@ export function exposeFilter() {
   window.filterTable = (colIndex, term) => {
     const rows = tbody().querySelectorAll("tr");
     const q = (term || "").toLowerCase();
-    rows.forEach((r) => {
+    rows.forEach(r => {
       if (r.classList.contains("expand-row")) return;
       const cell = r.cells[colIndex];
       const text = cell ? (cell.innerText || cell.textContent || "").toLowerCase() : "";
@@ -266,237 +246,7 @@ export function exposeFilter() {
   };
 }
 
-/* -------------------- 6) 정렬 바 주입 (카드 바깥 우측 정렬) -------------------- */
-(function injectSortBar() {
-  const table = document.getElementById("mainTable");
-  if (!table || document.getElementById("sortBar")) return;
-
-  // 1) "카드(테두리/그림자/라운드)"로 보이는 가장 가까운 조상 탐색
-  function findCardAncestor(el) {
-    let cur = el.parentElement;
-    while (cur && cur !== document.body) {
-      const cs = getComputedStyle(cur);
-      const hasShadow = cs.boxShadow && cs.boxShadow !== "none";
-      const hasRadius =
-        parseFloat(cs.borderTopLeftRadius) > 0 || parseFloat(cs.borderTopRightRadius) > 0;
-      const solidBg = (() => {
-        const c = cs.backgroundColor.trim();
-        return c !== "rgba(0, 0, 0, 0)" && c !== "transparent";
-      })();
-      if (hasShadow || hasRadius || solidBg) return cur; // 카드로 판단
-      cur = cur.parentElement;
-    }
-    return table.parentElement; // 실패 시 바로 바깥 컨테이너
-  }
-
-  // 2) 카드 앞에 호스트를 만들어 같은 가로폭/위치에 정렬 바를 배치
-  const card = findCardAncestor(table);
-  const host = document.createElement("div");
-  host.id = "sortBarHost";
-  host.style.position = "relative";
-  host.style.zIndex = "2";
-  card.parentNode.insertBefore(host, card); // 카드 바로 "앞"에 삽입 → 테두리 바깥
-
-  // 3) 정렬 바 DOM
-  const bar = document.createElement("div");
-  bar.id = "sortBar";
-  bar.innerHTML = `
-    <style>
-      #sortBar { display:flex; justify-content:flex-end; align-items:center; gap:10px; padding:6px 0 8px; }
-      #sortBar .select { display:flex; align-items:center; gap:6px; background:#ffffff; border:1px solid #d7ddea; border-radius:20px; padding:6px 10px; box-shadow:0 2px 10px rgba(0,0,0,.04); }
-      #sortBar label { font-weight:700; color:#4a4f63; font-size:.9rem; }
-      #sortBar select { border:0; background:transparent; padding:4px 4px; font-weight:700; color:#1b4ae8; outline:none; }
-      #sortBar .chip-area { display:flex; align-items:center; gap:6px; margin-right:auto; }
-      #sortBar .chip { display:none; align-items:center; gap:6px; padding:6px 10px; border-radius:18px; background:linear-gradient(135deg,#e3f2fd,#e8eaf6); color:#0d47a1; font-weight:800; border:1px solid #cbd5ff; }
-      #sortBar .chip .x { cursor:pointer; width:18px; height:18px; border-radius:50%; background:#0d47a1; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
-      #sortBar .reset { border:0; background:#eef2ff; color:#334155; font-weight:800; border-radius:20px; padding:8px 12px; cursor:pointer; }
-      #sortBar .reset:hover { background:#e0e7ff; }
-    </style>
-
-    <div class="chip-area">
-      <div id="sortChip" class="chip" aria-live="polite"></div>
-    </div>
-
-    <div class="select">
-      <label for="selReceipt">접수일자</label>
-      <select id="selReceipt" aria-label="접수일자 정렬">
-        <option value="none">기본순</option>
-        <option value="asc">오름차순 ↑</option>
-        <option value="desc">내림차순 ↓</option>
-      </select>
-    </div>
-
-    <div class="select">
-      <label for="selShip">발송일자</label>
-      <select id="selShip" aria-label="발송일자 정렬">
-        <option value="none">기본순</option>
-        <option value="asc">오름차순 ↑</option>
-        <option value="desc">내림차순 ↓</option>
-      </select>
-    </div>
-
-    <div class="select">
-      <label for="selComplete">수리완료일</label>
-      <select id="selComplete" aria-label="수리완료일 정렬">
-        <option value="none">기본순</option>
-        <option value="asc">오름차순 ↑</option>
-        <option value="desc">내림차순 ↓</option>
-      </select>
-    </div>
-
-    <button id="btnSortReset" class="reset" type="button">정렬 해제</button>
-  `;
-  host.appendChild(bar);
-
-  // 4) 카드의 화면 위치/폭에 맞춰 host 정렬 (반응형 대응)
-  const align = () => {
-    const r = card.getBoundingClientRect();
-    const scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
-    host.style.width = `${r.width}px`;
-    host.style.margin = "0";
-    host.style.left = `${r.left + scrollX}px`;
-    host.style.transform = `translateX(0)`;
-    host.style.position = "relative";
-    host.style.display = "block";
-    host.style.marginBottom = "6px";
-  };
-  const onResize = (() => {
-    let t = null;
-    return () => { clearTimeout(t); t = setTimeout(align, 60); };
-  })();
-  window.addEventListener("resize", onResize);
-  align();
-
-  // 5) 이벤트 연결(기능 동일)
-  const selReceipt = bar.querySelector("#selReceipt");
-  const selShip = bar.querySelector("#selShip");
-  const selComplete = bar.querySelector("#selComplete");
-  const btnReset = bar.querySelector("#btnSortReset");
-
-  function resetOthers(except) {
-    [selReceipt, selShip, selComplete].forEach(sel => { if (sel !== except) sel.value = "none"; });
-  }
-
-  selReceipt.addEventListener("change", () => {
-    resetOthers(selReceipt);
-    applySort(selReceipt.value === "none" ? null : { col: COL_RECEIPT, dir: selReceipt.value });
-  });
-  selShip.addEventListener("change", () => {
-    resetOthers(selShip);
-    applySort(selShip.value === "none" ? null : { col: COL_SHIP, dir: selShip.value });
-  });
-  selComplete.addEventListener("change", () => {
-    resetOthers(selComplete);
-    applySort(selComplete.value === "none" ? null : { col: COL_COMPLETE, dir: selComplete.value });
-  });
-  btnReset.addEventListener("click", () => {
-    [selReceipt, selShip, selComplete].forEach(sel => (sel.value = "none"));
-    applySort(null);
-  });
-})();
-
-/* -------------------- 7) 정렬 핵심 로직 -------------------- */
-function parseDateFromCell(tr, nthChild) {
-  const cell = tr.cells[nthChild - 1];
-  if (!cell) return NaN;
-  const input = cell.querySelector("input[type='date']");
-  const value = (input?.value || cell.innerText || "").trim();
-
-  // 'YYYY-MM-DD'만 유효. 그 외(예: '연도-월-일' 플레이스홀더)는 무시
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return NaN;
-
-  const ts = Date.parse(value + "T00:00:00");
-  return Number.isNaN(ts) ? NaN : ts;
-}
-
-function sortByDateColumn(nthChild, dir = "asc") {
-  const rows = Array.from(tbody().querySelectorAll("tr")).filter(tr => !tr.classList.contains("expand-row"));
-  rows.forEach((tr, i) => { if (!tr.dataset.initialIndex) tr.dataset.initialIndex = String(i); });
-
-  const items = rows.map(tr => {
-    const ts = parseDateFromCell(tr, nthChild);
-    const ex = tr.nextElementSibling && tr.nextElementSibling.classList.contains("expand-row")
-      ? tr.nextElementSibling : null;
-    return {
-      tr, ex,
-      ts: Number.isNaN(ts) ? Infinity : ts, // 빈 값은 항상 맨 뒤
-      idx: Number(tr.dataset.initialIndex || "0")
-    };
-  });
-
-  const mult = dir === "desc" ? -1 : 1;
-  items.sort((a, b) => {
-    const aInf = a.ts === Infinity, bInf = b.ts === Infinity;
-    if (aInf && !bInf) return 1;
-    if (!aInf && bInf) return -1;
-    if (aInf && bInf) return a.idx - b.idx; // 둘 다 빈 값 → 원래 순서
-    if (a.ts === b.ts) return a.idx - b.idx; // 안정 정렬
-    return (a.ts - b.ts) * mult;
-  });
-
-  const frag = document.createDocumentFragment();
-  items.forEach(({ tr, ex }) => {
-    frag.appendChild(tr);
-    if (ex) frag.appendChild(ex);
-  });
-  tbody().appendChild(frag);
-}
-
-function resetSortToInitial() {
-  const rows = Array.from(tbody().querySelectorAll("tr")).filter(tr => !tr.classList.contains("expand-row"));
-  rows.sort((a, b) => Number(a.dataset.initialIndex || "0") - Number(b.dataset.initialIndex || "0"));
-  const frag = document.createDocumentFragment();
-  rows.forEach(tr => {
-    frag.appendChild(tr);
-    const ex = tr.nextElementSibling && tr.nextElementSibling.classList.contains("expand-row")
-      ? tr.nextElementSibling : null;
-    if (ex) frag.appendChild(ex);
-  });
-  tbody().appendChild(frag);
-}
-
-function applySort(state /* {col, dir} | null */) {
-  activeSort = state ? { ...state } : { col: null, dir: "asc" };
-  updateSortChip();
-  if (!state) resetSortToInitial();
-  else sortByDateColumn(state.col, state.dir);
-}
-
-function maybeResort() {
-  if (!activeSort.col) return;
-  sortByDateColumn(activeSort.col, activeSort.dir);
-}
-
-/* -------------------- 8) 활성 정렬 태그(chip) -------------------- */
-function updateSortChip() {
-  const chip = document.getElementById("sortChip");
-  if (!chip) return;
-
-  if (!activeSort.col) {
-    chip.style.display = "none";
-    chip.textContent = "";
-    chip.onclick = null;
-    return;
-  }
-
-  const colName =
-    activeSort.col === COL_RECEIPT ? "접수일자" :
-    activeSort.col === COL_SHIP ? "발송일자" : "수리완료일";
-  const arrow = activeSort.dir === "asc" ? "↑" : "↓";
-  chip.innerHTML = `${colName} ${arrow} <span class="x" role="button" aria-label="정렬 해제">×</span>`;
-  chip.style.display = "inline-flex";
-  chip.querySelector(".x").onclick = () => {
-    const bar = document.getElementById("sortBar");
-    if (bar) {
-      bar.querySelector("#selReceipt").value = "none";
-      bar.querySelector("#selShip").value = "none";
-      bar.querySelector("#selComplete").value = "none";
-    }
-    applySort(null);
-  };
-}
-
-/* -------------------- 9) 스타일 1회 주입 -------------------- */
+/* -------------------- 6) 스타일 1회 주입 -------------------- */
 let _styleInjected = false;
 function injectOnceStyles() {
   if (_styleInjected) return;
@@ -520,7 +270,7 @@ function injectOnceStyles() {
                  overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .thumb-wrap { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; }
     .thumb { display:block; width:100%; height:100%; object-fit: cover; border-radius:6px; }
-    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; }
+    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; } /* 구버전 호환 */
     .photo-btn { position: absolute; bottom: 10px; right: 10px; border:0; border-radius:6px; padding:8px 12px; font-weight:700; color:#fff;
                  background: linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
 
@@ -549,15 +299,15 @@ function injectOnceStyles() {
     #mainTable tbody tr:not(.expand-row) td:nth-child(10),
     #mainTable tbody tr:not(.expand-row) td:nth-child(13) { cursor: default; }
 
-    /* 체크박스 사용성 향상(기본값; 아래 오버라이드로 확대) */
+    /* 체크박스 사용성 향상 */
     #mainTable th:first-child, #mainTable td:first-child { width: 56px; min-width: 56px; }
-    #mainTable input.rowCheck, #checkAll { width: 20px; height: 20px; transform: scale(1.3); transform-origin: center; cursor: pointer; }
+    #mainTable input.rowCheck, #checkAll { width: 20px; height: 20px; transform: scale(1.4); transform-origin: center; cursor: pointer; }
     #mainTable input.rowCheck { margin: 6px; }
   `;
   document.head.appendChild(style);
 }
 
-/* -------------------- 10) 테이블 전역 클릭 델리게이션 -------------------- */
+/* -------------------- 7) 테이블 전역 클릭 델리게이션 -------------------- */
 (function installRowOpenDelegation() {
   const table = document.getElementById("mainTable");
   if (!table) return;
@@ -580,80 +330,9 @@ function injectOnceStyles() {
     if (openTr && openTr !== tr) {
       await closeExpand(openTr, { save: true });
     }
-    const isOpen =
-      tr.nextElementSibling?.classList.contains("expand-row") &&
-      tr.nextElementSibling?.style.display !== "none";
+    const isOpen = tr.nextElementSibling?.classList.contains("expand-row") &&
+                   tr.nextElementSibling?.style.display !== "none";
     if (isOpen) await closeExpand(tr, { save: true });
     else openExpand(tr);
   });
-})(); // ✅ IIFE 제대로 닫기
-
-/* === UI 오버라이드: 정렬박스 한 줄 + 체크박스 크게 === */
-(function injectUiOverrides() {
-  if (document.getElementById("uiFix-sort-and-checkbox")) return;
-  const s = document.createElement("style");
-  s.id = "uiFix-sort-and-checkbox";
-  s.textContent = `
-    /* 정렬 바 pill이 줄바꿈되지 않게 고정 */
-    #sortBar .select { 
-      white-space: nowrap !important; 
-      min-width: 210px;           /* 한 줄 유지 폭 */
-      padding: 10px 14px;         /* 높이/여백 보정 */
-    }
-    #sortBar label,
-    #sortBar select { white-space: nowrap !important; }
-    #sortBar { gap: 12px; }       /* pill 사이 간격 약간 넓힘 */
-
-    /* 체크박스 크기 복원(조금 더 큼) */
-    #mainTable th:first-child,
-    #mainTable td:first-child { width: 68px; min-width: 68px; } /* 여백 확보 */
-    #mainTable input.rowCheck, 
-    #checkAll {
-      width: 24px; 
-      height: 24px; 
-      transform: scale(1.7) !important;  /* 크기 키움 */
-      transform-origin: center;
-      cursor: pointer;
-      accent-color: #2563eb;             /* 체크 색상(옵션) */
-    }
-    #mainTable input.rowCheck { margin: 8px; }
-  `;
-  document.head.appendChild(s);
-})(); // ✅ 즉시실행 누락 보완
-
-/* === UI 오버라이드: 정렬박스 한 줄 + 체크박스 크게 (보완) === */
-(function () {
-  const id = "uiFix-sort-and-checkbox-2";
-  if (document.getElementById(id)) return;
-  const s = document.createElement("style");
-  s.id = id;
-  s.textContent = `
-    /* 정렬 pill이 절대 줄바꿈되지 않도록 추가 고정 */
-    #sortBar .select{
-      white-space: nowrap !important;
-      min-width: 210px;      /* 필요시 220~240 으로만 조정 */
-      padding: 10px 14px;
-      flex: 0 0 auto;        /* flex 수축 방지 */
-      line-height: 1;        /* label 두 줄 깨짐 예방 */
-    }
-    #sortBar label,
-    #sortBar select{ white-space: nowrap !important; }
-    #sortBar{ gap: 12px; }
-
-    /* 체크박스 크게 (중복 적용되어도 안전) */
-    #mainTable th:first-child,
-    #mainTable td:first-child{ width: 68px; min-width: 68px; }
-    #mainTable input.rowCheck,
-    #checkAll{
-      width: 24px;
-      height: 24px;
-      transform: scale(1.7) !important;
-      transform-origin: center;
-      cursor: pointer;
-      accent-color: #2563eb;
-    }
-    #mainTable input.rowCheck{ margin: 8px; }
-  `;
-  document.head.appendChild(s);
 })();
-
