@@ -2,14 +2,15 @@
 import {
   db, auth, serverTimestamp,
   collection, addDoc, doc, updateDoc, deleteDoc,
-  onSnapshot, query, orderBy, getDocs
+  onSnapshot, query, orderBy, getDocs,
+  // ✅ firebase.js에서 export한 익명 로그인
+  signInAnonymously
 } from "./firebase.js";
 
-// ⬇️ Firestore의 setDoc 은 여기서 직접 임포트(버전 고정)
-//   (firebase.js를 수정하지 않아도 동작)
+// Firestore setDoc (merge용)
 import { setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ✅ Firebase Storage는 이 파일에서 직접 임포트 (firebase.js는 그대로)
+// Storage SDK
 import {
   getStorage, ref, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
@@ -24,19 +25,41 @@ export const schemaKeys = [
   "completeDate","cost","note"
 ];
 
-/** 내부 헬퍼: 안전 업데이트 (update 실패 시 setDoc merge 재시도) */
-async function safeMergeUpdate(docId, data) {
-  const ref = doc(db, COL, docId);
+/* ---------------------------
+ * 공통: 쓰기 전에 인증 보장
+ * --------------------------- */
+async function ensureAuth() {
   try {
-    await updateDoc(ref, data);
+    if (!auth.currentUser) {
+      const cred = await signInAnonymously(auth);
+      console.log("[auth] signed in anonymously:", cred.user?.uid);
+    }
+    return auth.currentUser?.uid || null;
   } catch (err) {
-    console.warn("[safeMergeUpdate] updateDoc 실패 → setDoc merge 재시도:", err);
-    await setDoc(ref, data, { merge: true });
+    console.error("[ensureAuth] anonymous sign-in failed:", err);
+    throw err;
   }
 }
 
-/** 신규 행 추가 (모달 값 프리필 반영) */
+/* ---------------------------
+ * 안전 업데이트 (update 실패 시 setDoc merge)
+ * --------------------------- */
+async function safeMergeUpdate(docId, data) {
+  const refDoc = doc(db, COL, docId);
+  try {
+    await updateDoc(refDoc, data);
+  } catch (err) {
+    console.warn("[safeMergeUpdate] updateDoc 실패 → setDoc(merge) 재시도:", err);
+    await setDoc(refDoc, data, { merge: true });
+  }
+}
+
+/* ---------------------------
+ * CRUD
+ * --------------------------- */
 export async function addRowDoc(prefill = {}) {
+  await ensureAuth(); // ✅ 인증 보장
+
   const base = {
     receiptDate: prefill.receipt || "",
     shipDate: "",
@@ -44,7 +67,7 @@ export async function addRowDoc(prefill = {}) {
     partNo: prefill.partNo || "",
     partName: prefill.partName || "",
     spec: prefill.spec || "",
-    symptom: prefill.symptom || "",   // ✅ 모달의 증상 값 반영
+    symptom: prefill.symptom || "",
     diagnosis: "",
     status: "",
     repairer: prefill.repairer || "",
@@ -53,16 +76,16 @@ export async function addRowDoc(prefill = {}) {
     cost: "",
     note: prefill.note || "",
     // 메타
-    photoUrl: prefill.photoUrl || "", // ✅ 상세 썸네일용
+    photoUrl: prefill.photoUrl || "",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    authorUid: (auth.currentUser && auth.currentUser.uid) || null
+    authorUid: auth.currentUser?.uid || null
   };
   await addDoc(colRef, base);
 }
 
-/** 단일 필드 수정 */
 export async function updateField(id, key, value) {
+  await ensureAuth(); // ✅ 인증 보장
   try {
     await safeMergeUpdate(id, { [key]: value, updatedAt: serverTimestamp() });
   } catch (err) {
@@ -71,8 +94,8 @@ export async function updateField(id, key, value) {
   }
 }
 
-/** 여러 필드 동시 수정 (상세영역 닫힐 때 일괄 저장) */
 export async function updateFields(id, obj = {}) {
+  await ensureAuth(); // ✅ 인증 보장
   if (!id || !obj || typeof obj !== "object") return;
   try {
     await safeMergeUpdate(id, { ...obj, updatedAt: serverTimestamp() });
@@ -83,10 +106,13 @@ export async function updateFields(id, obj = {}) {
 }
 
 export async function deleteRows(ids = []) {
+  await ensureAuth(); // ✅ 인증 보장
   await Promise.all(ids.map(id => deleteDoc(doc(db, COL, id))));
 }
 
-/** 실시간 구독 */
+/* ---------------------------
+ * 실시간 구독 / 전체 조회
+ * --------------------------- */
 export function subscribeRealtime(handlers) {
   const qy = query(colRef, orderBy("createdAt", "asc"));
   return onSnapshot(qy, snap => {
@@ -100,16 +126,15 @@ export function subscribeRealtime(handlers) {
   });
 }
 
-/** 모든 행 가져오기 (엑셀/CSV 내보내기용) */
 export async function fetchAllRows() {
   const qy = query(colRef, orderBy("createdAt", "asc"));
   const ss = await getDocs(qy);
   return ss.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-/* =======================
- *   Firebase Storage 사진 업로드 (보강판)
- * ======================= */
+/* ---------------------------
+ * Storage 사진 업로드 (보강판)
+ * --------------------------- */
 /**
  * 지정 문서에 사진 파일 업로드 후 photoUrl 업데이트
  * @param {string} id - 문서 ID
@@ -119,7 +144,10 @@ export async function fetchAllRows() {
 export async function uploadRowPhoto(id, file) {
   if (!id || !file) throw new Error("uploadRowPhoto: invalid args");
 
-  const storage = getStorage(app);
+  // ✅ 업로드 전에 인증 필수 (Storage 규칙 allow write: if request.auth != null;)
+  await ensureAuth();
+
+  const storage = getStorage(app); // 기본 버킷(firebasestorage.app) 사용
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
   const safeExt = ["jpg","jpeg","png","webp","gif","avif"].includes(ext) ? ext : "jpg";
   const path = `seaRows/${id}/photo_${Date.now()}.${safeExt}`;
@@ -133,12 +161,12 @@ export async function uploadRowPhoto(id, file) {
   // 2) 다운로드 URL
   const url = await getDownloadURL(snap.ref);
 
-  // 3) Firestore에 photoUrl 저장 (update 실패 시 merge setDoc)
+  // 3) Firestore에 photoUrl 저장 (update 실패 시 setDoc merge)
   await safeMergeUpdate(id, { photoUrl: url, updatedAt: serverTimestamp() });
 
   console.log("[uploadRowPhoto] saved photoUrl:", url);
 
-  // (선택) UI에 즉시 알림 → tr.dataset.photoUrl 등 동기화 보조
+  // (선택) UI 동기화를 위한 이벤트
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("photo:uploaded", { detail: { id, url } }));
   }
