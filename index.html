@@ -180,6 +180,33 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
   .author { font-size: .7rem; top: 6px; right: 10px; }
 }
 
+/* === 모바일에서 로고/제작자 텍스트 더 작게 + 겹침 방지 ============= */
+@media (max-width: 820px) {
+  /* 텍스트를 로고 위로 올려 겹침 방지 */
+  .header h1, .header .sub-desc, .header .author { position: relative; z-index: 1; }
+  .header .logo { z-index: 0; }
+
+  /* 로고 더 작게 (높이에 맞춰 비율 축소) */
+  .header .logo {
+    height: 26px;      /* 기존 64px → 26px */
+    left: 10px;        /* 왼쪽 여백 축소 */
+  }
+
+  /* ‘made by JH…’ 더 작게 */
+  .author {
+    font-size: 0.62rem;  /* 기존 0.9rem → 0.62rem */
+    top: 6px;            /* 위치 미세 조정 */
+    right: 8px;
+    line-height: 1.1;
+  }
+}
+
+/* 초소형 기기에서 한 단계 더 축소 */
+@media (max-width: 400px) {
+  .header .logo { height: 22px; left: 8px; }
+  .author { font-size: 0.58rem; top: 5px; right: 6px; }
+}
+ 
 </style>
 </head>
 <body>
@@ -297,6 +324,7 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
 </script>
 </body>
 </html>
+
 
 
 
