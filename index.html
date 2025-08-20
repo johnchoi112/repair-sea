@@ -1,48 +1,168 @@
-<!-- 모바일 주소창 색/웹앱 설정 -->
-<meta name="theme-color" content="#667eea">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>SEA Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#667eea" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
-<style>
-  /* ===== 공통(모바일 최적) ===== */
-  html, body { -webkit-text-size-adjust: 100%; }
-  body { margin: 0; }
-  * { -webkit-tap-highlight-color: transparent; }
-  .container { padding: clamp(8px, 2vw, 20px); }
+  <style>
+    :root {
+      --brand: #667eea;
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
 
-  /* iOS 노치 하단 안전영역 고려(FAB/푸터 등) */
-  :root { --safe-bottom: env(safe-area-inset-bottom, 0px); }
+    /* 기본 레이아웃 */
+    html, body { height: 100%; background: var(--bg); color: var(--text); }
+    body { margin: 0; font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Apple SD Gothic Neo, Noto Sans KR, sans-serif; -webkit-text-size-adjust: 100%; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-  /* 버튼/인풋: 모바일 터치 타깃 44px 이상 */
-  .btn, .modal-btn, input, select, textarea {
-    min-height: 44px;
-    font-size: 16px;  /* iOS 확대 방지 */
-  }
+    .container { max-width: 1280px; margin: 0 auto; padding: clamp(8px, 2vw, 20px); }
+    .header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+    .title { font-weight: 700; font-size: 18px; margin-right: auto; }
+    .controls { display: flex; gap: 8px; }
 
-  /* 테이블: 가로 스크롤 허용 + 부드러운 스크롤 */
-  .table-container {
-    overflow-x: auto;                 /* 기존 overflow-y에 추가 */
-    -webkit-overflow-scrolling: touch;
-  }
+    /* 버튼/인풋: 모바일 터치 타깃 44px 이상 */
+    button, .btn, input, select, textarea {
+      min-height: 44px;
+      font-size: 16px; /* iOS 확대 방지 */
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: #0b1220;
+      color: var(--text);
+      padding: 10px 14px;
+    }
+    button.primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      color: white;
+      font-weight: 700;
+      box-shadow: 0 6px 18px rgba(102,126,234,.35);
+      cursor: pointer;
+    }
+    button.primary:active { transform: translateY(1px); }
 
-  /* 작은 화면에서 테이블 최소 너비 확보(필터/열 숨김 없이 가로 스크롤) */
-  @media (max-width: 1024px) {
-    #mainTable { min-width: 980px; }  /* 열이 많으므로 카드화 대신 스크롤을 선택 */
-    thead th { position: sticky; top: 0; z-index: 10; } /* 이미 적용돼 있으나 재확인 */
-  }
+    /* 테이블 영역 */
+    .table-wrapper {
+      border: 1px solid #1f2937;
+      border-radius: 14px;
+      background: rgba(17,24,39,.5);
+      overflow: clip;
+    }
+    .table-toolbar { display:flex; flex-wrap:wrap; gap:8px; padding: 10px; border-bottom: 1px solid #1f2937; background: rgba(11,18,32,.75); }
+    .table-container {
+      overflow-x: auto;       /* 모바일 가로 스크롤 허용 */
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      max-height: calc(100vh - 260px);
+    }
 
-  /* 모달: 모바일에선 거의 풀스크린 + 내부 스크롤 */
-  #registerModal .modal-content {
-    width: min(96vw, 720px);
-    max-height: 90svh;   /* 모바일 주소창 변화 대응 */
-    overflow: auto;
-    padding-bottom: calc(16px + var(--safe-bottom));
-    outline: none;
-  }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 980px; color: var(--text); }
+    thead th {
+      position: sticky; top: 0; z-index: 10; text-align: left;
+      padding: 12px; background: #0b1220; border-bottom: 1px solid #1f2937; font-weight: 700;
+    }
+    tbody td { padding: 10px 12px; border-bottom: 1px solid #1f2937; vertical-align: top; }
+    tbody tr:hover { background: rgba(102,126,234,.08); }
 
-  /* 헤더/컨트롤 영역 간격 소형화 */
-  @media (max-width: 640px) {
-    .header { margin-bottom: 32px; }
-    .controls { gap: 6px; margin-top: 24px; }
-  }
-</style>
+    /* 확장(아코디언) 행 */
+    .expand { background: rgba(2,6,23,.6); }
+    .expand > td { padding: 0; }
+    .expand-inner { padding: 12px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+    /* 모달 */
+    .modal {
+      position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.45);
+      padding: 20px; z-index: 1000;
+    }
+    .modal[open] { display: grid; }
+    .modal-content {
+      width: min(96vw, 720px);
+      max-height: 90svh; /* 모바일 주소창 변화 대응 */
+      overflow: auto;
+      background: #0b1220; border: 1px solid #1f2937; border-radius: 14px; padding: 16px;
+      padding-bottom: calc(16px + var(--safe-bottom));
+    }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top: 16px; }
+
+    /* 모바일 간격 소형화 */
+    @media (max-width: 640px) {
+      .header { margin-bottom: 12px; }
+      .controls { gap: 6px; }
+    }
+
+    /* 모바일에서 데스크톱 전용 요소 숨김 훅 (필요 시) */
+    @media (pointer: coarse) and (max-width: 820px) {
+      [data-desktop-only] { display: none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">SEA 접수 관리</div>
+      <div class="controls">
+        <button id="btnAdd" class="primary">신규 접수</button>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <div class="table-toolbar">
+        <input id="filterInput" placeholder="검색(이름/상태 등)..." />
+      </div>
+      <div class="table-container">
+        <table id="mainTable" aria-label="접수 목록">
+          <thead>
+            <tr>
+              <th style="width:120px">상태</th>
+              <th>이름</th>
+              <th>연락처</th>
+              <th>접수일</th>
+              <th style="width:120px">사진</th>
+              <th style="width:80px">상세</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 신규 접수 모달 -->
+  <dialog id="registerModal" class="modal" aria-modal="true">
+    <div class="modal-content" role="document">
+      <h3 style="margin:0 0 12px 0;">신규 접수</h3>
+      <form id="registerForm">
+        <div style="display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(220px,1fr));">
+          <label>이름
+            <input name="name" required />
+          </label>
+          <label>연락처
+            <input name="phone" inputmode="tel" />
+          </label>
+          <label>상태
+            <select name="status">
+              <option value="접수">접수</option>
+              <option value="진행중">진행중</option>
+              <option value="완료">완료</option>
+            </select>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="btnCancel">취소</button>
+          <button type="submit" class="primary">확인</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
