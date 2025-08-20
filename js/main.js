@@ -2,7 +2,6 @@
 import { auth, signInAnonymously, onAuthStateChanged } from "./firebase.js";
 import { addRowDoc, deleteRows, subscribeRealtime } from "./data.js";
 import { renderNewRow, updateRow, removeRow, selectedRowIds, wireCheckAll, exposeFilter } from "./ui.js";
-import { injectImportExportUI } from "./importExport.js";
 
 /* ========== 모달 제어(인라인 스크립트 제거로 사라진 부분 복구) ========== */
 function getEl(id) { return document.getElementById(id); }
@@ -86,7 +85,43 @@ function bindTopButtons() {
 async function start() {
   wireCheckAll();
   exposeFilter();
-  injectImportExportUI(); // 엑셀/CSV 가져오기·내보내기 버튼 주입
+  // ① 핸드폰 판별 (터치 장치 + 짧은 변 기준)
+function isPhone() {
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  const minSide = Math.min(window.screen.width, window.screen.height);
+  return coarse && minSide <= 820;
+}
+
+// ② 앱 시작
+async function start() {
+  wireCheckAll();
+  exposeFilter();
+
+  // 데스크톱/태블릿에서만 가져오기/내보내기 UI 로딩
+  if (!isPhone()) {
+    try {
+      const mod = await import("./importExport.js");
+      if (typeof mod.injectImportExportUI === "function") {
+        mod.injectImportExportUI(); // 엑셀/CSV/가져오기 FAB 주입(웹에서만)
+      }
+    } catch (e) {
+      console.warn("importExport 모듈 로딩 실패:", e);
+    }
+  }
+
+  bindTopButtons();
+  wireModal();
+  await signInAnonymously(auth);
+  onAuthStateChanged(auth, (user) => {
+    if (!user) return;
+    subscribeRealtime({
+      onAdd: renderNewRow,
+      onModify: updateRow,
+      onRemove: removeRow
+    });
+  });
+}
+
   bindTopButtons();
   wireModal();            // ✅ 모달 이벤트 바인딩 추가
 
@@ -108,4 +143,5 @@ if (document.readyState === "loading") {
 } else {
   start();
 }
+
 
