@@ -551,7 +551,7 @@ function injectOnceStyles() {
 
     /* 체크박스 사용성 향상(기본값; 아래 오버라이드로 확대) */
     #mainTable th:first-child, #mainTable td:first-child { width: 56px; min-width: 56px; }
-    #mainTable input.rowCheck, #checkAll { width: 20px; height: 20px; transform: scale(1.4); transform-origin: center; cursor: pointer; }
+    #mainTable input.rowCheck, #checkAll { width: 20px; height: 20px; transform: scale(1.3); transform-origin: center; cursor: pointer; }
     #mainTable input.rowCheck { margin: 6px; }
   `;
   document.head.appendChild(style);
@@ -656,3 +656,4 @@ function injectOnceStyles() {
   `;
   document.head.appendChild(s);
 })();
+
