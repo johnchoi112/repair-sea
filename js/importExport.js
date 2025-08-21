@@ -38,38 +38,8 @@ async function loadXLSX() {
   throw lastErr || new Error("XLSX 로드 실패");
 }
 
-/* -------------------- UI 주입 (FAB) -------------------- */
-export function injectImportExportUI() {
-  if (document.getElementById("ieFab")) return;
-  const fab = document.createElement("div");
-  fab.id = "ieFab";
-  fab.innerHTML = `
-    <style>
-      #ieFab { position: fixed; right: 18px; bottom: 18px; z-index: 1000; }
-      #ieFab .btn { border:0; border-radius:28px; padding:12px 16px; color:#fff; font-weight:800; cursor:pointer;
-                    box-shadow: 0 6px 18px rgba(0,0,0,.18); margin-left:8px; }
-      #btnExport { background: linear-gradient(135deg,#4caf50,#2e8b57); }
-      #btnCsv    { background: linear-gradient(135deg,#2196f3,#1976d2); }
-      #btnImport { background: linear-gradient(135deg,#ff9800,#f57c00); }
-      #ieHiddenInput { display:none; }
-    </style>
-    <button class="btn" id="btnExport">엑셀 내보내기</button>
-    <button class="btn" id="btnCsv">CSV 내보내기</button>
-    <button class="btn" id="btnImport">가져오기</button>
-    <input type="file" id="ieHiddenInput" accept=".xlsx,xls,csv" />
-  `;
-  document.body.appendChild(fab);
-
-  document.getElementById("btnExport").addEventListener("click", exportXLSX);
-  document.getElementById("btnCsv").addEventListener("click", exportCSV);
-  document.getElementById("btnImport").addEventListener("click", () =>
-    document.getElementById("ieHiddenInput").click()
-  );
-  document.getElementById("ieHiddenInput").addEventListener("change", handleImportFile);
-}
-
 /* -------------------- 내보내기: XLSX -------------------- */
-async function exportXLSX() {
+export async function exportXLSX() {
   try {
     const rows = await fetchAllRows();
     const data = [schemaKeys.map(k => KEY_TO_HEADER[k] || k)];
@@ -86,17 +56,8 @@ async function exportXLSX() {
   }
 }
 
-/* -------------------- 내보내기: CSV -------------------- */
-async function exportCSV() {
-  const rows = await fetchAllRows();
-  const headers = schemaKeys.map(k => KEY_TO_HEADER[k] || k);
-  const body = rows.map(r => schemaKeys.map(k => csvEscape(r[k] ?? "")));
-  const csv = [headers.map(csvEscape).join(","), ...body.map(a => a.join(","))].join("\r\n");
-  downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `SEA_export_${yyyymmdd()}.csv`);
-}
-
 /* -------------------- 가져오기: CSV/XLSX -------------------- */
-async function handleImportFile(e) {
+export async function handleImportFile(e) {
   const file = e.target.files?.[0];
   if (!file) return;
   const name = file.name.toLowerCase();
@@ -125,7 +86,7 @@ async function handleImportFile(e) {
   }
 }
 
-/* -------------------- 보조 -------------------- */
+/* -------------------- CSV 파싱(가져오기용) -------------------- */
 async function parseCSV(file) {
   const text = await file.text();
   const lines = text.split(/\r?\n/).filter(Boolean);
@@ -163,11 +124,4 @@ function mapToSchema(record) {
   });
   schemaKeys.forEach(k => { if (record[k] != null) out[k] = record[k]; });
   return out;
-}
-function downloadBlob(blob, filename) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
