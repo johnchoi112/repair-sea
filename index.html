@@ -44,7 +44,8 @@
   .btn-del { background: linear-gradient(135deg, #f44336, #da190b); }
   .btn-reg { background: linear-gradient(135deg, #2196F3, #1976D2); }
 
-  .table-container { background:#fff; border-radius:15px; box-shadow:0 8px 32px rgba(0,0,0,.08); overflow:hidden; max-height: 650px; overflow-y: auto; }
+  .table-container { background:#fff; border-radius:15px; box-shadow:0 8px 32px rgba(0,0,0,.08); overflow:hidden; max-height: 650px; overflow-y: auto;
+                      position: relative; } /* 정렬 도크 배치를 위해 relative */
   table { width: 100%; border-collapse: collapse; table-layout: auto; }
   th, td { border:1px solid #e0e0e0; text-align:center; padding:10px 6px; }
   thead th { position: sticky; top:0; z-index:10; color:#fff;
@@ -142,51 +143,27 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
 /* === 모바일(핸드폰)에서 표 좌우 스와이프 허용 === */
 @media (max-width: 820px) {
   .table-container {
-    /* 원래 overflow:hidden; overflow-y:auto 를 유지하면서
-       X축만 별도로 auto로 덮어씁니다 */
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  /* 열이 많으니 화면보다 넓게 확보 → 가로 스크롤로 모두 보이게 */
   #mainTable { min-width: 1100px; }
 }
 
 /* === 모바일 헤더: 축소 + 상단 고정(기능 영향 없음) ===================== */
 @media (max-width: 820px) {
-  /* 헤더를 상단에 고정(sticky). 페이지/내부 스크롤과 충돌 없음 */
   .header {
-    position: sticky;    /* 기존 relative → sticky */
+    position: sticky;
     top: 0;
-    z-index: 50;         /* 테이블, 버튼보다 위 */
-    padding: 12px 16px;  /* 높이 축소 */
+    z-index: 50;
+    padding: 12px 16px;
     margin-bottom: 16px;
     border-radius: 12px;
-    overflow: hidden;    /* 내부 요소 넘침 방지 */
+    overflow: hidden;
   }
-
-  /* 로고 더 작게 + 여백 감소 */
-  .header .logo {
-    left: 12px;          /* 기존 24px → 12px */
-    height: 36px;        /* 기존 64px → 36px */
-  }
-
-  /* 제목/설명/작성자 폰트 축소 */
-  .header h1 {
-    font-size: 1.25rem;  /* 기존 2.1rem에서 축소 */
-    margin: 0;
-    line-height: 1.1;
-    word-break: keep-all;
-  }
-  .sub-desc {
-    font-size: .80rem;   /* 기존 0.95rem에서 축소 */
-    margin-top: 4px;
-  }
-  .author {
-    top: 8px;            /* 기존 16px → 8px */
-    right: 12px;         /* 기존 30px → 12px */
-    font-size: .75rem;
-    line-height: 1.1;
-  }
+  .header .logo { left: 12px; height: 36px; }
+  .header h1 { font-size: 1.25rem; margin: 0; line-height: 1.1; word-break: keep-all; }
+  .sub-desc { font-size: .80rem; margin-top: 4px; }
+  .author { top: 8px; right: 12px; font-size: .75rem; line-height: 1.1; }
 }
 
 /* 초소형 기기(세로 360~400px)에서 한 단계 더 축소 */
@@ -200,23 +177,10 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
 
 /* === 모바일에서 로고/제작자 텍스트 더 작게 + 겹침 방지 ============= */
 @media (max-width: 820px) {
-  /* 텍스트를 로고 위로 올려 겹침 방지 */
   .header h1, .header .sub-desc, .header .author { position: relative; z-index: 1; }
   .header .logo { z-index: 0; }
-
-  /* 로고 더 작게 (높이에 맞춰 비율 축소) */
-  .header .logo {
-    height: 26px;      /* 기존 64px → 26px */
-    left: 10px;        /* 왼쪽 여백 축소 */
-  }
-
-  /* ‘made by JH…’ 더 작게 */
-  .author {
-    font-size: 0.62rem;  /* 기존 0.9rem → 0.62rem */
-    top: 6px;            /* 위치 미세 조정 */
-    right: 8px;
-    line-height: 1.1;
-  }
+  .header .logo { height: 26px; left: 10px; }
+  .author { font-size: 0.62rem; top: 6px; right: 8px; line-height: 1.1; }
 }
 
 /* 초소형 기기에서 한 단계 더 축소 */
@@ -227,11 +191,42 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
 
 /* === 핸드폰에서만 SEA 로고 숨기기 (웹은 그대로) === */
 @media (pointer: coarse) and (max-width: 820px) {
-  .header .logo { 
-    display: none !important; /* 이미지/접근성 트리트먼트 모두 숨김 */
-  }
+  .header .logo { display: none !important; }
 }
- 
+
+/* --- 정렬 버튼(칩) --- */
+.sort-dock {
+  position: absolute;
+  top: -14px;            /* 테두리 밖 위쪽 */
+  right: 12px;           /* 비고 헤더 오른쪽과 자연스럽게 */
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  z-index: 20;
+}
+.sort-btn {
+  font-size: 0.72rem;
+  padding: 5px 10px;
+  background: #ffffff;
+  color: #333;
+  border: 1px solid #d8dbe3;
+  border-radius: 999px;  /* 칩 형태 */
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,.06);
+  transition: all .18s ease;
+}
+.sort-btn:hover { background:#f7f8fc; border-color:#c9cdd8; }
+.sort-btn.active { background:#eef2ff; border-color:#a5b4fc; color:#334155; }
+
+/* --- [증상][진단 결과] 고정 숨김(CSS) --- */
+/* 1행 thead와 tbody 모두 8,9번째 컬럼을 숨긴다(체크박스 열 포함 기준) */
+#mainTable thead tr:first-child th:nth-child(8),
+#mainTable thead tr:first-child th:nth-child(9),
+#mainTable tbody tr td:nth-child(8),
+#mainTable tbody tr td:nth-child(9) {
+  display: none !important;
+}
 </style>
 </head>
 <body>
@@ -253,6 +248,14 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
 </div>
 
   <div class="table-container">
+    <!-- 🔽 테두리 밖, 우측 상단에 정렬 도크 -->
+    <div id="sortDock" class="sort-dock" aria-label="정렬 컨트롤">
+      <button class="sort-btn" data-field="receiptDate">접수일자↑↓</button>
+      <button class="sort-btn" data-field="shipDate">발송일자↑↓</button>
+      <button class="sort-btn" data-field="completeDate">완료일↑↓</button>
+      <button class="sort-btn" data-reset>정렬 초기화</button>
+    </div>
+
     <table id="mainTable">
       <thead>
         <tr>
@@ -306,7 +309,11 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
     </div>
   </div>
 </div>
- <script type="module" src="./js/main.js"></script>
+
+<!-- 앱 스크립트 -->
+<script type="module" src="./js/main.js"></script>
+
+<!-- 행 상태색 적용 & 초기 와이어링 -->
 <script>
 (function(){
   const MAP = {
@@ -321,30 +328,166 @@ tr.row-status-paid:hover { filter: brightness(1.0); }
   function applyStyle(row, value){
     row.classList.remove(...ALL);
     const cls = MAP[(value||"").trim()];
-    if (cls) row.classList.add(cls); // 값 없으면(=선택) 기존 바탕색
+    if (cls) row.classList.add(cls);
   }
 
   function wireRow(row){
     const sel = row && row.querySelector('select[data-key="status"]');
     if (!sel || sel._rowStyleWired) return;
     sel._rowStyleWired = true;
-    applyStyle(row, sel.value);                 // 초기값 반영
-    sel.addEventListener('change', () => applyStyle(row, sel.value)); // 변경시 반영
+    applyStyle(row, sel.value);
+    sel.addEventListener('change', () => applyStyle(row, sel.value));
   }
 
   function init(){
     const tbody = document.getElementById('tableBody');
     if (!tbody) return;
-    tbody.querySelectorAll('tr').forEach(wireRow); // 기존 행
-    new MutationObserver(muts => {                 // 신규 행 자동 연결
+    tbody.querySelectorAll('tr').forEach(wireRow);
+    new MutationObserver(muts => {
       muts.forEach(m => m.addedNodes.forEach(n => {
         if (n.nodeType === 1 && n.tagName === 'TR') wireRow(n);
       }));
     }).observe(tbody, { childList: true });
   }
 
-  document.readyState === 'loading' ? 
+  document.readyState === 'loading' ?
     document.addEventListener('DOMContentLoaded', init) : init();
+})();
+</script>
+
+<!-- 정렬 기능 + 숨김 보강(초기/동적) -->
+<script>
+(function(){
+  /* -------------------- 1) [증상][진단 결과] 강제 숨김 -------------------- */
+  const HIDE_INDEXES = [8, 9]; // 1-based: 체크박스 포함 기준
+
+  function hideColsNow(root = document){
+    // thead 1행
+    const headRow = root.querySelector('#mainTable thead tr');
+    if (headRow) {
+      HIDE_INDEXES.forEach(i => { const th = headRow.children[i-1]; if (th) th.style.display = 'none'; });
+    }
+    // tbody 모든 행
+    root.querySelectorAll('#mainTable tbody tr').forEach(tr => {
+      HIDE_INDEXES.forEach(i => { const td = tr.children[i-1]; if (td) td.style.display = 'none'; });
+    });
+  }
+
+  function observeForNewRows(){
+    const tbody = document.getElementById('tableBody');
+    if (!tbody) return;
+    new MutationObserver(muts => {
+      muts.forEach(m => m.addedNodes.forEach(n => {
+        if (n.nodeType === 1 && n.tagName === 'TR') {
+          HIDE_INDEXES.forEach(i => { const td = n.children[i-1]; if (td) td.style.display = 'none'; });
+        }
+      }));
+    }).observe(tbody, { childList: true });
+  }
+
+  // DOM 준비 시 1회 강제 숨김
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { hideColsNow(); observeForNewRows(); });
+  } else {
+    hideColsNow(); observeForNewRows();
+  }
+
+  /* -------------------- 2) 정렬 기능 -------------------- */
+  const dock = document.getElementById('sortDock');
+  if (!dock) return;
+
+  // 원래 순서 저장(실시간 추가/삭제 반영)
+  let sortedActive = false;
+  const originalOrder = []; // [{tr, ex}]
+  const idSet = new Set();
+
+  function captureInitialOrderFor(tr){
+    if (tr.classList.contains('expand-row')) return;
+    if (!tr.dataset || !tr.dataset.id) return;
+    if (idSet.has(tr.dataset.id)) return;
+    idSet.add(tr.dataset.id);
+    const ex = tr.nextElementSibling?.classList.contains('expand-row') ? tr.nextElementSibling : null;
+    originalOrder.push({ tr, ex });
+  }
+
+  function buildObserver(){
+    const tbody = document.getElementById('tableBody');
+    if (!tbody) return;
+    // 기존 행 수집
+    tbody.querySelectorAll('tr').forEach(captureInitialOrderFor);
+    // 변경 감시
+    new MutationObserver(muts => {
+      if (sortedActive) return; // 정렬 중에는 기준 순서 갱신 정지
+      muts.forEach(m => {
+        m.addedNodes.forEach(n => { if (n.nodeType===1 && n.tagName==='TR') captureInitialOrderFor(n); });
+        m.removedNodes.forEach(n => {
+          if (n.nodeType===1 && n.tagName==='TR' && n.dataset && n.dataset.id) {
+            const idx = originalOrder.findIndex(x => x.tr === n);
+            if (idx >= 0) { originalOrder.splice(idx, 1); idSet.delete(n.dataset.id); }
+          }
+        });
+      });
+    }).observe(tbody, { childList: true });
+  }
+  buildObserver();
+
+  const sortStates = { receiptDate: 1, shipDate: 1, completeDate: 1 }; // 1:ASC, -1:DESC
+
+  function labelReset(){
+    dock.querySelectorAll('button.sort-btn').forEach(b => {
+      if (b.dataset.field) b.textContent = (b.textContent.replace(/[↑↓]/g,'').trim()) + '↑↓';
+      b.classList.remove('active');
+    });
+  }
+
+  function getDateValue(tr, field){
+    const input = tr.querySelector(`input[data-key="${field}"]`);
+    return (input && input.value) ? input.value : ""; // YYYY-MM-DD 형태이므로 문자열 비교 OK
+  }
+
+  function applySort(field){
+    const tbody = document.getElementById('tableBody');
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(tr => !tr.classList.contains('expand-row'));
+    const order = sortStates[field] = -sortStates[field];
+
+    // 상태 표시
+    labelReset();
+    const btn = dock.querySelector(`button[data-field="${field}"]`);
+    if (btn) {
+      const base = btn.textContent.replace(/[↑↓]/g,'').trim();
+      btn.textContent = base + (order > 0 ? '↑' : '↓');
+      btn.classList.add('active');
+    }
+
+    // 정렬 실행
+    rows.sort((a,b) => order * getDateValue(a, field).localeCompare(getDateValue(b, field)));
+
+    rows.forEach(tr => {
+      const ex = tr.nextElementSibling?.classList.contains('expand-row') ? tr.nextElementSibling : null;
+      tbody.appendChild(tr);
+      if (ex) tbody.appendChild(ex);
+    });
+
+    sortedActive = true;
+  }
+
+  function resetSort(){
+    const tbody = document.getElementById('tableBody');
+    originalOrder.forEach(({tr, ex}) => {
+      if (document.body.contains(tr)) tbody.appendChild(tr);
+      if (ex && document.body.contains(ex)) tbody.appendChild(ex);
+    });
+    labelReset();
+    sortedActive = false;
+  }
+
+  dock.addEventListener('click', (e) => {
+    const btn = e.target.closest('button.sort-btn');
+    if (!btn) return;
+    if (btn.hasAttribute('data-reset')) return resetSort();
+    const field = btn.getAttribute('data-field');
+    if (field) applySort(field);
+  });
 })();
 </script>
 </body>
