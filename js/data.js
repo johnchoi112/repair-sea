@@ -84,7 +84,6 @@ export async function updateFields(id, obj = {}) {
   await ensureAuth();
   if (!id || !obj || typeof obj !== "object") return;
   try {
-    // 🔧 문법 오류 수정: { ...obj }로 스프레드
     await safeMergeUpdate(id, { ...obj, updatedAt: serverTimestamp() });
   } catch (err) {
     console.error("[updateFields] 실패:", id, err);
@@ -103,7 +102,6 @@ export function subscribeRealtime(handlers) {
   return onSnapshot(qy, snap => {
     snap.docChanges().forEach(ch => {
       const id = ch.doc.id;
-      // 🔧 문법 오류 수정: { id, ...ch.doc.data() }로 스프레드
       const data = { id, ...ch.doc.data() };
       if (ch.type === "added") handlers.onAdd?.(data);
       else if (ch.type === "modified") handlers.onModify?.(data);
