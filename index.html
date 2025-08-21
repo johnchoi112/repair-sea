@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<title>SEA 수리&amp;재가공 현황</title>
+<title>SEA 수리&재가공 현황</title>
 
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
@@ -13,13 +13,13 @@
 
 <meta name="description" content="자재팀·구매팀을 위한 실시간 수리·재가공 현황 관리 웹사이트">
 <meta property="og:type" content="website">
-<meta property="og:title" content="SEA 수리&amp;재가공 현황">
+<meta property="og:title" content="SEA 수리&재가공 현황">
 <meta property="og:description" content="자재팀·구매팀을 위한 실시간 수리·재가공 현황 관리 웹사이트">
 <meta property="og:url" content="https://johnchoi112.github.io/repair-sea/">
 <meta property="og:site_name" content="SEA 현황">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="SEA 수리&amp;재가공 현황">
+<meta name="twitter:title" content="SEA 수리&재가공 현황">
 <meta name="twitter:description" content="자재팀·구매팀을 위한 실시간 수리·재가공 현황 관리 웹사이트">
 
 <style>
@@ -50,7 +50,7 @@
           border: 1px solid #d8dbe3; cursor: pointer; user-select: none;
           box-shadow: 0 2px 6px rgba(0,0,0,.06);
           transition: transform .15s ease, box-shadow .15s ease, background .2s ease, border-color .2s ease;
-          background: linear-gradient(180deg, #ffffff, #f8f9fb); color:#334155;}
+          background: linear-gradient(180deg, #ffffff, #f8f9fb); color:#334155; }
   .chip:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,.08); }
   .chip:active { transform: translateY(0); }
   .chip.active { outline: none; }
@@ -100,7 +100,7 @@
   tr.row-status-free:hover,
   tr.row-status-paid:hover { filter: brightness(1.0); }
 
-  /* ✅ 체크박스 사이즈: 항상 크게(상세창 전/후 동일) */
+  /* ✅ 체크박스 사이즈 고정(상세창 전/후 동일) */
   #mainTable th:first-child, #mainTable td:first-child { width: 56px; min-width: 56px; }
   #mainTable input.rowCheck, #checkAll { width:20px; height:20px; transform: scale(1.4); transform-origin: center; cursor: pointer; }
   #mainTable input.rowCheck { margin: 6px; }
@@ -123,12 +123,27 @@
   #mainTable thead tr:first-child th:nth-child(9),
   #mainTable tbody tr td:nth-child(8),
   #mainTable tbody tr td:nth-child(9) { display: none !important; }
+
+  /* === 모달: 초기엔 반드시 숨김 === */
+  .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; }
+  .modal[aria-hidden="false"] { display:block !important; }
+  .modal-content { width: 420px; max-width: calc(100vw - 40px); margin: 5% auto; background:#fff; border-radius:12px;
+                   padding: 16px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .modal-header { text-align:center; font-weight:800; margin-bottom:12px; }
+  .modal-table { width:100%; border-collapse: collapse; table-layout: fixed; }
+  .modal-table th, .modal-table td { border:1px solid #eee; padding:6px 8px; font-size:.9rem; text-align:center; }
+  .modal-table th { width: 110px; background:#fafafa; }
+  .modal-input { width: 100%; padding:6px 8px; border:1px solid #ddd; border-radius:6px; color: #000; }
+  .modal-footer { text-align:center; margin-top:10px; }
+  .modal-btn { padding:9px 16px; border:0; border-radius:6px; cursor:pointer; color:#fff; font-weight:700; }
+  .ok { background: linear-gradient(135deg, #4CAF50, #45a049); }
+  .cancel { background: linear-gradient(135deg, #f44336, #da190b); margin-left:6px; }
 </style>
 </head>
 <body>
 <div class="header">
  <img src="./logo.avif" alt="SEA logo" class="logo" />
-  <h1>SEA 수리&amp;재가공 현황</h1>
+  <h1>SEA 수리&재가공 현황</h1>
   <p class="sub-desc">이 웹사이트는 자재팀과 구매팀을 위한 실시간 수리·재가공 현황 관리용 웹사이트 입니다.</p>
   <div class="author"><strong>made by JH</strong> <span class="contact">(010-4747-2421)</span></div>
 </div>
@@ -197,145 +212,7 @@
   </div>
 </div>
 
-<!-- 앱 메인 모듈 -->
+<!-- 앱 메인 모듈 (UI 로직은 전부 ui.js로 이관) -->
 <script type="module" src="./js/main.js"></script>
-
-<!-- 상태색 와이어링 -->
-<script>
-(function(){
-  const MAP = {
-    "접수완료": "row-status-received",
-    "수리 중": "row-status-repairing",
-    "수리중": "row-status-repairing",
-    "무상수리완료": "row-status-free",
-    "유상수리완료": "row-status-paid"
-  };
-  const ALL = Object.values(MAP);
-
-  function applyStyle(row, value){
-    row.classList.remove(...ALL);
-    const cls = MAP[(value||"").trim()];
-    if (cls) row.classList.add(cls);
-  }
-
-  function wireRow(row){
-    const sel = row && row.querySelector('select[data-key="status"]');
-    if (!sel || sel._rowStyleWired) return;
-    sel._rowStyleWired = true;
-    applyStyle(row, sel.value);
-    sel.addEventListener('change', () => applyStyle(row, sel.value));
-  }
-
-  function init(){
-    const tbody = document.getElementById('tableBody');
-    if (!tbody) return;
-    tbody.querySelectorAll('tr').forEach(wireRow);
-    new MutationObserver(muts => {
-      muts.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && n.tagName === 'TR') wireRow(n); }));
-    }).observe(tbody, { childList: true });
-  }
-
-  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', init) : init();
-})();
-</script>
-
-<!-- [증상/진단] 숨김 보강 + 정렬(툴바) -->
-<script>
-(function(){
-  /* ---- 1) [증상][진단 결과] 강제 숨김 ---- */
-  const HIDE_INDEXES = [8, 9]; // 1-based index
-
-  function hideColsNow(root = document){
-    const headRow = root.querySelector('#mainTable thead tr');
-    if (headRow) HIDE_INDEXES.forEach(i => { const th = headRow.children[i-1]; if (th) th.style.display = 'none'; });
-    root.querySelectorAll('#mainTable tbody tr').forEach(tr => {
-      HIDE_INDEXES.forEach(i => { const td = tr.children[i-1]; if (td) td.style.display = 'none'; });
-    });
-  }
-  function observeNewRowsForHide(){
-    const tbody = document.getElementById('tableBody'); if (!tbody) return;
-    new MutationObserver(muts => {
-      muts.forEach(m => m.addedNodes.forEach(n => {
-        if (n.nodeType === 1 && n.tagName === 'TR') HIDE_INDEXES.forEach(i => {
-          const td = n.children[i-1]; if (td) td.style.display = 'none';
-        });
-      }));
-    }).observe(tbody, { childList: true });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { hideColsNow(); observeNewRowsForHide(); });
-  } else { hideColsNow(); observeNewRowsForHide(); }
-
-  /* ---- 2) 정렬 (툴바: #sortTools) ---- */
-  const tools = document.getElementById('sortTools'); if (!tools) return;
-  const sortStates = { receiptDate: 1, shipDate: 1, completeDate: 1 }; // 1:ASC, -1:DESC
-  let sortedActive = false;
-
-  // 원래 순서 저장(실시간 추가/삭제 반영)
-  const originalOrder = []; const idSet = new Set();
-  const tbody = document.getElementById('tableBody');
-
-  function capture(tr){
-    if (tr.classList.contains('expand-row')) return;
-    const id = tr.dataset?.id; if (!id || idSet.has(id)) return;
-    idSet.add(id);
-    const ex = tr.nextElementSibling?.classList.contains('expand-row') ? tr.nextElementSibling : null;
-    originalOrder.push({ tr, ex });
-  }
-  function observeForOrder(){
-    if (!tbody) return;
-    tbody.querySelectorAll('tr').forEach(capture);
-    new MutationObserver(muts => {
-      if (sortedActive) return;
-      muts.forEach(m => {
-        m.addedNodes.forEach(n => { if (n.nodeType===1 && n.tagName==='TR') capture(n); });
-        m.removedNodes.forEach(n => {
-          if (n.nodeType===1 && n.tagName==='TR'){
-            const idx = originalOrder.findIndex(x => x.tr === n);
-            if (idx >= 0){ idSet.delete(n.dataset?.id); originalOrder.splice(idx,1); }
-          }
-        });
-      });
-    }).observe(tbody, { childList: true });
-  }
-  observeForOrder();
-
-  function resetLabels(){
-    tools.querySelectorAll('button.chip').forEach(b => {
-      if (b.dataset.field) b.textContent = (b.textContent.replace(/[↑↓]/g,'').trim()) + '↑↓';
-      b.classList.remove('active');
-    });
-  }
-  function getDateValue(tr, field){
-    const input = tr.querySelector(`input[data-key="${field}"]`);
-    return input?.value || "";
-  }
-  function applySort(field){
-    const order = sortStates[field] = -sortStates[field];
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(tr => !tr.classList.contains('expand-row'));
-    resetLabels();
-    const btn = tools.querySelector(`button[data-field="${field}"]`);
-    if (btn){ const base = btn.textContent.replace(/[↑↓]/g,'').trim(); btn.textContent = base + (order>0?'↑':'↓'); btn.classList.add('active'); }
-    rows.sort((a,b) => order * getDateValue(a, field).localeCompare(getDateValue(b, field)));
-    rows.forEach(tr => {
-      const ex = tr.nextElementSibling?.classList.contains('expand-row') ? tr.nextElementSibling : null;
-      tbody.appendChild(tr); if (ex) tbody.appendChild(ex);
-    });
-    sortedActive = true;
-  }
-  function resetSort(){
-    originalOrder.forEach(({tr, ex}) => {
-      if (document.body.contains(tr)) tbody.appendChild(tr);
-      if (ex && document.body.contains(ex)) tbody.appendChild(ex);
-    });
-    resetLabels(); sortedActive = false;
-  }
-  tools.addEventListener('click', (e) => {
-    const btn = e.target.closest('button.chip'); if (!btn) return;
-    if (btn.hasAttribute('data-reset')) return resetSort();
-    const field = btn.getAttribute('data-field'); if (field) applySort(field);
-  });
-})();
-</script>
 </body>
 </html>
