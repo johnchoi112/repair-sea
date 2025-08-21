@@ -1,19 +1,14 @@
 // js/ui.js
-import { schemaKeys, updateField, updateFields, uploadRowPhoto } from "./data.js";
+import { schemaKeys, updateField, updateFields, uploadRowPhoto, addRowDoc } from "./data.js";
 import { debounce } from "./utils.js";
 
 const tbody = () => document.getElementById("tableBody");
 const checkAll = () => document.getElementById("checkAll");
 
-// 내부 컬럼 키 배열 (행 렌더링용)
-const COL_KEYS = ["_check", ...schemaKeys];
-// 0:체크, 1:접수일자, 2:발송일자, 3:거래처, 4:품번, 5:품명, 6:규격,
-// 7:증상(hidden), 8:진단 결과(hidden), 9:상태, 10:수리요청자, 11:연락처,
-// 12:수리완료일, 13:수리비용, 14:비고
+/* ================== 컬럼/템플릿 ================== */
+export const COL_KEYS = ["_check", ...schemaKeys];
 
-/* -------------------- 1) 표 행 템플릿 -------------------- */
 export function createRowHTML() {
-  // 본문 편집 금지(상세창 유도). 증상/진단은 CSS로 숨김
   return `
     <td><input type="checkbox" class="rowCheck" /></td>
     <td><input type="date" data-key="receiptDate"/></td>
@@ -41,15 +36,17 @@ export function createRowHTML() {
   `;
 }
 
-/* -------------------- 2) 렌더/적용 -------------------- */
+/* ================== 렌더/적용 ================== */
 export function renderNewRow(doc) {
   const tr = document.createElement("tr");
   tr.dataset.id = doc.id;
   tr.innerHTML = createRowHTML();
-  tr.dataset.photoUrl = doc.photoUrl || ""; // 썸네일 초기값 보관
+  tr.dataset.photoUrl = doc.photoUrl || "";
   applyDataToRow(tr, doc);
   tbody().appendChild(tr);
   attachRowListeners(tr);
+  wireStatusForRow(tr);       // 상태색 즉시 반영
+  captureOriginalOrder(tr);   // 정렬 복구 기준 반영
 }
 
 export function applyDataToRow(tr, data) {
@@ -64,6 +61,8 @@ export function applyDataToRow(tr, data) {
     else cell.innerText = v;
   });
   tr.dataset.photoUrl = (data.photoUrl ?? "");
+  // 상태 변경에 따른 스타일 재적용
+  wireStatusForRow(tr);
 }
 
 export function updateRow(doc) {
@@ -71,7 +70,6 @@ export function updateRow(doc) {
   if (!tr) return;
   applyDataToRow(tr, doc);
 
-  // 상세영역 열려있다면 내부도 동기화
   const ex = tr.nextElementSibling;
   if (ex && ex.classList.contains("expand-row")) {
     const sInput = ex.querySelector(".detail-symptom");
@@ -102,13 +100,14 @@ export function selectedRowIds() {
     .map(tr => tr.dataset.id);
 }
 
+/* ================== 체크박스 전체선택 ================== */
 export function wireCheckAll() {
   checkAll()?.addEventListener("change", () => {
     document.querySelectorAll(".rowCheck").forEach(cb => cb.checked = checkAll().checked);
   });
 }
 
-/* -------------------- 3) 상세영역(아코디언) -------------------- */
+/* ================== 상세(아코디언) ================== */
 let openTr = null;
 
 function getColspan() {
@@ -164,7 +163,7 @@ function buildExpandRow(tr) {
     img.src = localUrl; img.style.display = "block";
     try {
       const url = await uploadRowPhoto(id, f);
-      img.src = url; // 실제 업로드 URL 반영
+      img.src = url;
     } catch (err) {
       alert("사진 업로드 실패. 다시 시도해 주세요.");
       console.error(err);
@@ -174,7 +173,7 @@ function buildExpandRow(tr) {
     }
   });
 
-  injectOnceStyles(); // 스타일 1회 주입
+  injectOnceStyles();
   return ex;
 }
 
@@ -203,13 +202,12 @@ async function closeExpand(tr, { save = true } = {}) {
 async function closeAnyOpen(eTarget) {
   if (!openTr) return;
   const ex = openTr.nextElementSibling;
-  if (ex && ex.contains(eTarget)) return; // 상세 내부 클릭은 무시
+  if (ex && ex.contains(eTarget)) return;
   await closeExpand(openTr, { save: true });
 }
 
-/* -------------------- 4) 이벤트 바인딩(저장만 담당) -------------------- */
+/* ================== 입력/저장 바인딩 ================== */
 export function attachRowListeners(tr) {
-  // 입력/셀렉트 변경 → 필드 업데이트 (예외 4컬럼만 해당)
   const handler = debounce(async (target) => {
     const key = target.dataset.key;
     if (!key) return;
@@ -226,11 +224,11 @@ export function attachRowListeners(tr) {
 /* 테이블 밖 클릭 시 열림 닫기 + 저장 */
 document.addEventListener("click", async (e) => {
   const mainTable = document.getElementById("mainTable");
-  if (mainTable && mainTable.contains(e.target)) return; // 내부 클릭은 델리게이션에서 처리
+  if (mainTable && mainTable.contains(e.target)) return;
   await closeAnyOpen(e.target);
 });
 
-/* -------------------- 5) 필터 유틸 -------------------- */
+/* ================== 필터 유틸 ================== */
 export function exposeFilter() {
   window.filterTable = (colIndex, term) => {
     const rows = tbody().querySelectorAll("tr");
@@ -246,7 +244,7 @@ export function exposeFilter() {
   };
 }
 
-/* -------------------- 6) 스타일 1회 주입 -------------------- */
+/* ================== 스타일(1회) 주입 ================== */
 let _styleInjected = false;
 function injectOnceStyles() {
   if (_styleInjected) return;
@@ -257,7 +255,6 @@ function injectOnceStyles() {
     #mainTable th:nth-child(8), #mainTable td:nth-child(8),
     #mainTable th:nth-child(9), #mainTable td:nth-child(9) { display: none !important; }
 
-    /* 상세 박스(아코디언) 스타일 */
     .expand-row > td { padding: 12px 16px; background: #f8faff; border-top: 1px solid #e3eaf5; }
     .detail-wrap { min-height: 200px; }
     .detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: start; }
@@ -265,58 +262,42 @@ function injectOnceStyles() {
     .detail-label { display:block; font-weight:700; margin-bottom:6px; }
     .detail-text { width:100%; min-height:160px; resize:vertical; border:1px solid #ddd; border-radius:6px; padding:8px; font-size:.95rem; color:#000; }
 
-    /* 사진 썸네일 영역 */
     .photo-box { position: relative; width: 100%; height: 180px; border: 1px dashed #c7d2fe; border-radius: 8px; background: #f9fbff;
                  overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .thumb-wrap { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; }
     .thumb { display:block; width:100%; height:100%; object-fit: cover; border-radius:6px; }
-    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; } /* 구버전 호환 */
+    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; }
     .photo-btn { position: absolute; bottom: 10px; right: 10px; border:0; border-radius:6px; padding:8px 12px; font-weight:700; color:#fff;
                  background: linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
 
-    /* 본문 클릭/편집 차단 (상세열기 유도) */
+    /* 본문 클릭/편집 차단(상세열기 유도) + 예외 컬럼만 허용 */
     #mainTable tbody tr:not(.expand-row) td { cursor: pointer; user-select: none; }
     #mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; user-select: auto; }
-
-    /* 기본적으로 본문 내 폼요소 비활성화 */
     #mainTable tbody tr:not(.expand-row) input,
     #mainTable tbody tr:not(.expand-row) select,
     #mainTable tbody tr:not(.expand-row) textarea,
     #mainTable tbody tr:not(.expand-row) [contenteditable] { pointer-events: none !important; }
-
-    /* 체크박스만 항상 허용 */
     #mainTable tbody tr:not(.expand-row) input.rowCheck { pointer-events: auto !important; }
-
-    /* 예외 컬럼(2:접수일자, 3:발송일자, 10:상태, 13:수리완료일)만 폼 조작 허용 */
     #mainTable tbody tr:not(.expand-row) td:nth-child(2) input,
     #mainTable tbody tr:not(.expand-row) td:nth-child(3) input,
     #mainTable tbody tr:not(.expand-row) td:nth-child(10) select,
     #mainTable tbody tr:not(.expand-row) td:nth-child(13) input { pointer-events: auto !important; }
-
-    /* 예외 컬럼은 상세열기 커서 제거 */
     #mainTable tbody tr:not(.expand-row) td:nth-child(2),
     #mainTable tbody tr:not(.expand-row) td:nth-child(3),
     #mainTable tbody tr:not(.expand-row) td:nth-child(10),
     #mainTable tbody tr:not(.expand-row) td:nth-child(13) { cursor: default; }
-
-    /* 체크박스 사용성 향상 */
-    #mainTable th:first-child, #mainTable td:first-child { width: 56px; min-width: 56px; }
-    #mainTable input.rowCheck, #checkAll { width: 20px; height: 20px; transform: scale(1.4); transform-origin: center; cursor: pointer; }
-    #mainTable input.rowCheck { margin: 6px; }
   `;
   document.head.appendChild(style);
 }
 
-/* -------------------- 7) 테이블 전역 클릭 델리게이션 -------------------- */
+/* ================== 테이블 클릭(상세열기) ================== */
 (function installRowOpenDelegation() {
   const table = document.getElementById("mainTable");
   if (!table) return;
 
-  // 예외 컬럼(0-based): 0=체크박스, 1=접수일자, 2=발송일자, 9=상태, 12=수리완료일
-  const NON_TOGGLE_CELLS = new Set([0, 1, 2, 9, 12]);
+  const NON_TOGGLE_CELLS = new Set([0, 1, 2, 9, 12]); // 체크박스/접수/발송/상태/완료일
 
   table.addEventListener("click", async (e) => {
-    // 상세행 내부 클릭은 무시
     const expand = e.target.closest("tr.expand-row");
     if (expand) return;
 
@@ -336,3 +317,179 @@ function injectOnceStyles() {
     else openExpand(tr);
   });
 })();
+
+/* ================== 상태 색상 클래스 ================== */
+const STATUS_CLASS = {
+  "접수완료": "row-status-received",
+  "수리 중": "row-status-repairing",
+  "수리중": "row-status-repairing",
+  "무상수리완료": "row-status-free",
+  "유상수리완료": "row-status-paid"
+};
+const STATUS_ALL = Object.values(STATUS_CLASS);
+
+function applyStatusClass(row, value) {
+  row.classList.remove(...STATUS_ALL);
+  const cls = STATUS_CLASS[(value || "").trim()];
+  if (cls) row.classList.add(cls);
+}
+function wireStatusForRow(row) {
+  const sel = row && row.querySelector('select[data-key="status"]');
+  if (!sel || sel._statusWired) return;
+  sel._statusWired = true;
+  applyStatusClass(row, sel.value);
+  sel.addEventListener("change", () => applyStatusClass(row, sel.value));
+}
+
+/* ================== 정렬 칩(카드 밖) ================== */
+const sortStates = { receiptDate: 1, shipDate: 1, completeDate: 1 }; // 1:ASC, -1:DESC
+let sortedActive = false;
+const originalOrder = []; // [{tr, ex}]
+const idSet = new Set();
+
+function captureOriginalOrder(tr) {
+  if (!tr || tr.classList.contains("expand-row")) return;
+  const id = tr.dataset?.id;
+  if (!id || idSet.has(id)) return;
+  idSet.add(id);
+  const ex = tr.nextElementSibling?.classList.contains("expand-row") ? tr.nextElementSibling : null;
+  originalOrder.push({ tr, ex });
+}
+function observeForOrder() {
+  const tb = tbody();
+  if (!tb) return;
+  tb.querySelectorAll("tr").forEach(captureOriginalOrder);
+  new MutationObserver(muts => {
+    if (sortedActive) return;
+    muts.forEach(m => {
+      m.addedNodes.forEach(n => { if (n.nodeType===1 && n.tagName==='TR') captureOriginalOrder(n); });
+      m.removedNodes.forEach(n => {
+        if (n.nodeType===1 && n.tagName==='TR'){
+          const idx = originalOrder.findIndex(x => x.tr === n);
+          if (idx >= 0){ originalOrder.splice(idx,1); idSet.delete(n.dataset?.id); }
+        }
+      });
+    });
+  }).observe(tb, { childList: true });
+}
+
+function resetSortLabels() {
+  const tools = document.getElementById("sortTools");
+  tools?.querySelectorAll("button.chip").forEach(b => {
+    if (b.dataset.field) b.textContent = (b.textContent.replace(/[↑↓]/g,'').trim()) + '↑↓';
+    b.classList.remove("active");
+  });
+}
+function getDateValue(tr, field) {
+  const input = tr.querySelector(`input[data-key="${field}"]`);
+  return input?.value || "";
+}
+function applySort(field) {
+  const tools = document.getElementById("sortTools");
+  const tb = tbody();
+  if (!tools || !tb) return;
+
+  const order = sortStates[field] = -sortStates[field];
+  const rows = Array.from(tb.querySelectorAll("tr")).filter(tr => !tr.classList.contains("expand-row"));
+
+  resetSortLabels();
+  const btn = tools.querySelector(`button[data-field="${field}"]`);
+  if (btn) {
+    const base = btn.textContent.replace(/[↑↓]/g,'').trim();
+    btn.textContent = base + (order > 0 ? "↑" : "↓");
+    btn.classList.add("active");
+  }
+
+  rows.sort((a,b) => order * getDateValue(a, field).localeCompare(getDateValue(b, field)));
+
+  rows.forEach(tr => {
+    const ex = tr.nextElementSibling?.classList.contains("expand-row") ? tr.nextElementSibling : null;
+    tb.appendChild(tr); if (ex) tb.appendChild(ex);
+  });
+
+  sortedActive = true;
+}
+function resetSort() {
+  const tb = tbody();
+  if (!tb) return;
+  originalOrder.forEach(({ tr, ex }) => {
+    if (document.body.contains(tr)) tb.appendChild(tr);
+    if (ex && document.body.contains(ex)) tb.appendChild(ex);
+  });
+  resetSortLabels();
+  sortedActive = false;
+}
+function wireSortTools() {
+  observeForOrder();
+  const tools = document.getElementById("sortTools");
+  if (!tools) return;
+  tools.addEventListener("click", (e) => {
+    const btn = e.target.closest("button.chip"); if (!btn) return;
+    if (btn.hasAttribute("data-reset")) return resetSort();
+    const field = btn.getAttribute("data-field"); if (field) applySort(field);
+  });
+}
+
+/* ================== 모달 UI ================== */
+function openModal() {
+  const md = document.getElementById("registerModal");
+  if (!md) return;
+  md.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+
+  // 입력 초기화 & 오늘 날짜
+  ["mReceipt","mCompany","mPartNo","mPartName","mSpec","mSymptom","mRepairer","mContact","mNote"]
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  const today = new Date(); const p = n=>String(n).padStart(2,"0");
+  const dstr = `${today.getFullYear()}-${p(today.getMonth()+1)}-${p(today.getDate())}`;
+  const rcv = document.getElementById("mReceipt"); if (rcv) rcv.value = dstr;
+
+  md.querySelector(".modal-content")?.focus();
+}
+function closeModal() {
+  const md = document.getElementById("registerModal");
+  if (!md) return;
+  md.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+function wireModal() {
+  document.getElementById("btnOpen")?.addEventListener("click", openModal);
+  document.getElementById("mOk")?.addEventListener("click", async () => {
+    const pre = {
+      receipt:  document.getElementById("mReceipt")?.value || "",
+      company:  document.getElementById("mCompany")?.value || "",
+      partNo:   document.getElementById("mPartNo")?.value || "",
+      partName: document.getElementById("mPartName")?.value || "",
+      spec:     document.getElementById("mSpec")?.value || "",
+      symptom:  document.getElementById("mSymptom")?.value || "",
+      repairer: document.getElementById("mRepairer")?.value || "",
+      contact:  document.getElementById("mContact")?.value || "",
+      note:     document.getElementById("mNote")?.value || ""
+    };
+    await addRowDoc(pre);
+    closeModal();
+  });
+  document.getElementById("mCancel")?.addEventListener("click", closeModal);
+
+  const md = document.getElementById("registerModal");
+  md?.addEventListener("click", (e) => { if (e.target === md) closeModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+}
+
+/* ================== 초기화 합본(외부에서 한 번만 호출) ================== */
+export function setupUI() {
+  wireCheckAll();
+  exposeFilter();
+  wireSortTools();
+  wireModal();
+
+  // 초기 상태 클래스 반영 & 이후 추가 행에도 적용
+  tbody()?.querySelectorAll("tr").forEach(wireStatusForRow);
+  new MutationObserver(muts => {
+    muts.forEach(m => m.addedNodes.forEach(n => {
+      if (n.nodeType === 1 && n.tagName === "TR") {
+        wireStatusForRow(n);
+      }
+    }));
+  }).observe(tbody(), { childList: true });
+}
