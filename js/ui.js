@@ -45,8 +45,8 @@ export function renderNewRow(doc) {
   applyDataToRow(tr, doc);
   tbody().appendChild(tr);
   attachRowListeners(tr);
-  wireStatusForRow(tr);       // 상태색 즉시 반영
-  captureOriginalOrder(tr);   // 정렬 복구 기준 반영
+  wireStatusForRow(tr);
+  captureOriginalOrder(tr);
 }
 
 export function applyDataToRow(tr, data) {
@@ -61,7 +61,6 @@ export function applyDataToRow(tr, data) {
     else cell.innerText = v;
   });
   tr.dataset.photoUrl = (data.photoUrl ?? "");
-  // 상태 변경에 따른 스타일 재적용
   wireStatusForRow(tr);
 }
 
@@ -154,7 +153,6 @@ function buildExpandRow(tr) {
   const btn = td.querySelector(".photo-btn");
   const file = td.querySelector(".photo-file");
   const img = td.querySelector(".thumb");
-
   btn.addEventListener("click", () => file.click());
   file.addEventListener("change", async (e) => {
     const f = e.target.files?.[0];
@@ -228,7 +226,7 @@ document.addEventListener("click", async (e) => {
   await closeAnyOpen(e.target);
 });
 
-/* ================== 필터 유틸 ================== */
+/* ================== 필터 유틸(전역 노출) ================== */
 export function exposeFilter() {
   window.filterTable = (colIndex, term) => {
     const rows = tbody().querySelectorAll("tr");
@@ -251,7 +249,7 @@ function injectOnceStyles() {
   _styleInjected = true;
   const style = document.createElement("style");
   style.textContent = `
-    /* [증상], [진단 결과] 컬럼 숨김(헤더/바디) */
+    /* [증상], [진단 결과] 컬럼 숨김 */
     #mainTable th:nth-child(8), #mainTable td:nth-child(8),
     #mainTable th:nth-child(9), #mainTable td:nth-child(9) { display: none !important; }
 
@@ -270,7 +268,7 @@ function injectOnceStyles() {
     .photo-btn { position: absolute; bottom: 10px; right: 10px; border:0; border-radius:6px; padding:8px 12px; font-weight:700; color:#fff;
                  background: linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
 
-    /* 본문 클릭/편집 차단(상세열기 유도) + 예외 컬럼만 허용 */
+    /* 클릭/편집 가이드 */
     #mainTable tbody tr:not(.expand-row) td { cursor: pointer; user-select: none; }
     #mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; user-select: auto; }
     #mainTable tbody tr:not(.expand-row) input,
@@ -327,7 +325,6 @@ const STATUS_CLASS = {
   "유상수리완료": "row-status-paid"
 };
 const STATUS_ALL = Object.values(STATUS_CLASS);
-
 function applyStatusClass(row, value) {
   row.classList.remove(...STATUS_ALL);
   const cls = STATUS_CLASS[(value || "").trim()];
@@ -372,7 +369,6 @@ function observeForOrder() {
     });
   }).observe(tb, { childList: true });
 }
-
 function resetSortLabels() {
   const tools = document.getElementById("sortTools");
   tools?.querySelectorAll("button.chip").forEach(b => {
@@ -401,23 +397,19 @@ function applySort(field) {
   }
 
   rows.sort((a,b) => order * getDateValue(a, field).localeCompare(getDateValue(b, field)));
-
   rows.forEach(tr => {
     const ex = tr.nextElementSibling?.classList.contains("expand-row") ? tr.nextElementSibling : null;
     tb.appendChild(tr); if (ex) tb.appendChild(ex);
   });
-
   sortedActive = true;
 }
 function resetSort() {
-  const tb = tbody();
-  if (!tb) return;
+  const tb = tbody(); if (!tb) return;
   originalOrder.forEach(({ tr, ex }) => {
     if (document.body.contains(tr)) tb.appendChild(tr);
     if (ex && document.body.contains(ex)) tb.appendChild(ex);
   });
-  resetSortLabels();
-  sortedActive = false;
+  resetSortLabels(); sortedActive = false;
 }
 function wireSortTools() {
   observeForOrder();
@@ -437,7 +429,6 @@ function openModal() {
   md.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
 
-  // 입력 초기화 & 오늘 날짜
   ["mReceipt","mCompany","mPartNo","mPartName","mSpec","mSymptom","mRepairer","mContact","mNote"]
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   const today = new Date(); const p = n=>String(n).padStart(2,"0");
@@ -470,26 +461,50 @@ function wireModal() {
     closeModal();
   });
   document.getElementById("mCancel")?.addEventListener("click", closeModal);
-
   const md = document.getElementById("registerModal");
   md?.addEventListener("click", (e) => { if (e.target === md) closeModal(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 }
 
-/* ================== 초기화 합본(외부에서 한 번만 호출) ================== */
+/* ================== Import/Export FAB (CSV 내보내기 제거) ================== */
+export function createImportExportFab(exportXLSX, handleImportFile) {
+  if (document.getElementById("ieFab")) return;
+
+  const fab = document.createElement("div");
+  fab.id = "ieFab";
+  fab.innerHTML = `
+    <style>
+      #ieFab { position: fixed; right: 18px; bottom: 18px; z-index: 1000; display:flex; gap:8px; }
+      #ieFab .btn { border:0; border-radius:28px; padding:12px 16px; color:#fff; font-weight:800; cursor:pointer;
+                    box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+      #btnExport { background: linear-gradient(135deg,#4caf50,#2e8b57); }
+      #btnImport { background: linear-gradient(135deg,#ff9800,#f57c00); }
+      #ieHiddenInput { display:none; }
+    </style>
+    <button class="btn" id="btnExport">엑셀 내보내기</button>
+    <button class="btn" id="btnImport">가져오기</button>
+    <input type="file" id="ieHiddenInput" accept=".xlsx,.xls,.csv" />
+  `;
+  document.body.appendChild(fab);
+
+  document.getElementById("btnExport").addEventListener("click", () => exportXLSX());
+  document.getElementById("btnImport").addEventListener("click", () =>
+    document.getElementById("ieHiddenInput").click()
+  );
+  document.getElementById("ieHiddenInput").addEventListener("change", handleImportFile);
+}
+
+/* ================== 초기화 합본 ================== */
 export function setupUI() {
   wireCheckAll();
   exposeFilter();
   wireSortTools();
   wireModal();
 
-  // 초기 상태 클래스 반영 & 이후 추가 행에도 적용
   tbody()?.querySelectorAll("tr").forEach(wireStatusForRow);
   new MutationObserver(muts => {
     muts.forEach(m => m.addedNodes.forEach(n => {
-      if (n.nodeType === 1 && n.tagName === "TR") {
-        wireStatusForRow(n);
-      }
+      if (n.nodeType === 1 && n.tagName === "TR") wireStatusForRow(n);
     }));
   }).observe(tbody(), { childList: true });
 }
