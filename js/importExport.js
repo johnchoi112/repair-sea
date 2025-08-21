@@ -13,7 +13,6 @@ const HEADER_TO_KEY = {
   "증상": "symptom",
   "진단 결과": "diagnosis",
   "상태": "status",
-  // 표기 차이 허용
   "수리 담당자": "repairer",
   "수리 요청자": "repairer",
   "연락처": "contact",
@@ -23,7 +22,7 @@ const HEADER_TO_KEY = {
 };
 const KEY_TO_HEADER = Object.fromEntries(Object.entries(HEADER_TO_KEY).map(([k,v]) => [v,k]));
 
-// 안전한 XLSX 로더(로컬 → CDN 폴백)
+// 안전한 XLSX 로더
 async function loadXLSX() {
   const CANDIDATES = [
     { type: "umd", url: "./vendor/xlsx.full.min.js" },
@@ -33,14 +32,8 @@ async function loadXLSX() {
   for (const c of CANDIDATES) {
     try {
       await loadScript(c.url);
-      if (window.XLSX?.utils && window.XLSX.writeFile) {
-        console.info("[XLSX] 로드 성공:", c.url);
-        return window.XLSX;
-      }
-    } catch (e) {
-      lastErr = e;
-      console.warn("[XLSX] 로드 실패:", c.url, e);
-    }
+      if (window.XLSX?.utils && window.XLSX.writeFile) return window.XLSX;
+    } catch (e) { lastErr = e; }
   }
   throw lastErr || new Error("XLSX 로드 실패");
 }
@@ -145,7 +138,6 @@ async function parseCSV(file) {
     return obj;
   });
 }
-
 function splitCsvLine(line) {
   const res = []; let cur = ""; let inQ = false;
   for (let i = 0; i < line.length; i++) {
@@ -163,7 +155,6 @@ function splitCsvLine(line) {
   res.push(cur);
   return res;
 }
-
 function mapToSchema(record) {
   const out = {};
   Object.entries(record).forEach(([h, v]) => {
@@ -173,7 +164,6 @@ function mapToSchema(record) {
   schemaKeys.forEach(k => { if (record[k] != null) out[k] = record[k]; });
   return out;
 }
-
 function downloadBlob(blob, filename) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
