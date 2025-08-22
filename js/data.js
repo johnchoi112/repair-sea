@@ -12,10 +12,13 @@ import { app } from "./firebase.js";
 const COL = "seaRows";
 const colRef = collection(db, COL);
 
+/** 테이블/엑셀 공통 스키마 순서 */
 export const schemaKeys = [
   "receiptDate","shipDate","company","partNo","partName","spec",
   "symptom","diagnosis","status","repairer","contact",
-  "completeDate","cost","note"
+  "completeDate","cost","note",
+  // ✅ 새 필드
+  "special"
 ];
 
 /* 인증 보장 */
@@ -61,6 +64,8 @@ export async function addRowDoc(prefill = {}) {
     completeDate: "",
     cost: "",
     note: prefill.note || "",
+    // ✅ 새 필드 기본값
+    special: prefill.special || "",
     // 메타
     photoUrl: prefill.photoUrl || "",
     createdAt: serverTimestamp(),
