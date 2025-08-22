@@ -8,6 +8,70 @@ const checkAll = () => document.getElementById("checkAll");
 /* ================== 컬럼/템플릿 ================== */
 export const COL_KEYS = ["_check", ...schemaKeys];
 
+/** 실행 1회 스타일 주입 + 숨김 규칙 */
+let _styleInjected = false;
+function injectOnceStyles() {
+  if (_styleInjected) return;
+  _styleInjected = true;
+  const style = document.createElement("style");
+  style.textContent = `
+    /* 기존 숨김: [증상], [진단 결과] */
+    #mainTable th:nth-child(8), #mainTable td:nth-child(8),
+    #mainTable th:nth-child(9), #mainTable td:nth-child(9) { display: none !important; }
+
+    /* 새 숨김: [특채] - data-key/col 기반으로도 보장 */
+    #mainTable th[data-col="special"],
+    #mainTable td[data-key="special"] { display: none !important; }
+
+    .expand-row > td { padding: 12px 16px; background: #f8faff; border-top: 1px solid #e3eaf5; }
+    .detail-wrap { min-height: 200px; }
+    /* ✅ 자동 맞춤(균등 분할) 4칸 */
+    .detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .detail-cell { background: #ffffff; border: 1px solid #e3eaf5; border-radius: 8px; padding: 10px; }
+    .detail-label { display:block; font-weight:700; margin-bottom:6px; }
+    .detail-text { width:100%; min-height:160px; resize:vertical; border:1px solid #ddd; border-radius:6px; padding:8px; font-size:.95rem; color:#000; }
+
+    .photo-box { position: relative; width: 100%; height: 180px; border: 1px dashed #c7d2fe; border-radius: 8px; background: #f9fbff;
+                 overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .thumb-wrap { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; }
+    .thumb { display:block; width:100%; height:100%; object-fit: cover; border-radius:6px; }
+    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; }
+    .photo-btn { position: absolute; bottom: 10px; right: 10px; border:0; border-radius:6px; padding:8px 12px; font-weight:700; color:#fff;
+                 background: linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+
+    /* 클릭/편집 가이드 (기존 유지) */
+    #mainTable tbody tr:not(.expand-row) td { cursor: pointer; user-select: none; }
+    #mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; user-select: auto; }
+    #mainTable tbody tr:not(.expand-row) input,
+    #mainTable tbody tr:not(.expand-row) select,
+    #mainTable tbody tr:not(.expand-row) textarea,
+    #mainTable tbody tr:not(.expand-row) [contenteditable] { pointer-events: none !important; }
+
+    /* 체크박스/날짜/상태/완료일은 직접 조작 가능(기존 유지) */
+    #mainTable tbody tr:not(.expand-row) .rowCheck { pointer-events: auto !important; }
+    #mainTable tbody tr:not(.expand-row) td:nth-child(2) input,
+    #mainTable tbody tr:not(.expand-row) td:nth-child(3) input,
+    #mainTable tbody tr:not(.expand-row) td:nth-child(10) select,
+    #mainTable tbody tr:not(.expand-row) td:nth-child(13) input { pointer-events: auto !important; }
+    #mainTable tbody tr:not(.expand-row) td:nth-child(2),
+    #mainTable tbody tr:not(.expand-row) td:nth-child(3),
+    #mainTable tbody tr:not(.expand-row) td:nth-child(10),
+    #mainTable tbody tr:not(.expand-row) td:nth-child(13) { cursor: default; }
+  `;
+  document.head.appendChild(style);
+}
+
+/** 헤더에 [특채] 숨김 열 보장(HTML 수정 없이 런타임 주입) */
+function ensureHiddenSpecialHeader() {
+  const headRow = document.querySelector("#mainTable thead tr");
+  if (!headRow || headRow.querySelector('th[data-col="special"]')) return;
+  const th = document.createElement("th");
+  th.setAttribute("data-col", "special");
+  th.textContent = "특채";
+  headRow.appendChild(th);
+}
+
+/** 본문 행 템플릿 (마지막에 숨김 [특채] 셀 포함) */
 export function createRowHTML() {
   return `
     <td><input type="checkbox" class="rowCheck" /></td>
@@ -33,6 +97,8 @@ export function createRowHTML() {
     <td><input type="date" data-key="completeDate"/></td>
     <td data-key="cost"></td>
     <td data-key="note"></td>
+    <!-- ✅ 숨김 특채 셀(값 저장/내보내기용) -->
+    <td data-key="special"></td>
   `;
 }
 
@@ -69,12 +135,15 @@ export function updateRow(doc) {
   if (!tr) return;
   applyDataToRow(tr, doc);
 
+  // 상세가 열려있다면 textarea들도 동기화
   const ex = tr.nextElementSibling;
   if (ex && ex.classList.contains("expand-row")) {
     const sInput = ex.querySelector(".detail-symptom");
     const dInput = ex.querySelector(".detail-diagnosis");
+    const pInput = ex.querySelector(".detail-special"); // ✅
     if (sInput && doc.symptom != null) sInput.value = doc.symptom || "";
     if (dInput && doc.diagnosis != null) dInput.value = doc.diagnosis || "";
+    if (pInput && doc.special  != null) pInput.value = doc.special  || "";
 
     const img = ex.querySelector(".thumb") || ex.querySelector(".photo-preview");
     if (img) {
@@ -144,6 +213,11 @@ function buildExpandRow(tr) {
           <label class="detail-label" for="dia-${id}">진단 결과</label>
           <textarea id="dia-${id}" class="detail-text detail-diagnosis">${tr.cells[8]?.innerText || ""}</textarea>
         </div>
+        <!-- ✅ 특채 -->
+        <div class="detail-cell">
+          <label class="detail-label" for="sp-${id}">특채</label>
+          <textarea id="sp-${id}" class="detail-text detail-special">${(tr.querySelector('td[data-key="special"]')?.innerText) || ""}</textarea>
+        </div>
       </div>
     </div>
   `;
@@ -188,107 +262,19 @@ async function closeExpand(tr, { save = true } = {}) {
     if (save) {
       const sym = ex.querySelector(".detail-symptom")?.value || "";
       const dia = ex.querySelector(".detail-diagnosis")?.value || "";
-      await updateFields(tr.dataset.id, { symptom: sym, diagnosis: dia });
-      if (tr.cells[7]) tr.cells[7].innerText = sym;
-      if (tr.cells[8]) tr.cells[8].innerText = dia;
+      const spc = ex.querySelector(".detail-special")?.value || "";
+      await updateFields(tr.dataset.id, { symptom: sym, diagnosis: dia, special: spc }); // ✅
+      if (tr.cells[7])  tr.cells[7].innerText = sym;
+      if (tr.cells[8])  tr.cells[8].innerText = dia;
+      const spCell = tr.querySelector('td[data-key="special"]');
+      if (spCell) spCell.innerText = spc;
     }
     ex.style.display = "none";
   }
   if (openTr === tr) openTr = null;
 }
 
-async function closeAnyOpen(eTarget) {
-  if (!openTr) return;
-  const ex = openTr.nextElementSibling;
-  if (ex && ex.contains(eTarget)) return;
-  await closeExpand(openTr, { save: true });
-}
-
-/* ================== 입력/저장 바인딩 ================== */
-export function attachRowListeners(tr) {
-  const handler = debounce(async (target) => {
-    const key = target.dataset.key;
-    if (!key) return;
-    const id = tr.dataset.id;
-    const value = (target.tagName === "INPUT" || target.tagName === "SELECT") ? target.value : target.innerText;
-    await updateField(id, key, value);
-  }, 300);
-
-  tr.querySelectorAll("input[data-key], select[data-key]").forEach(el => {
-    el.addEventListener("change", e => handler(e.target));
-  });
-}
-
-/* 테이블 밖 클릭 시 열림 닫기 + 저장 */
-document.addEventListener("click", async (e) => {
-  const mainTable = document.getElementById("mainTable");
-  if (mainTable && mainTable.contains(e.target)) return;
-  await closeAnyOpen(e.target);
-});
-
-/* ================== 필터 유틸(전역 노출) ================== */
-export function exposeFilter() {
-  window.filterTable = (colIndex, term) => {
-    const rows = tbody().querySelectorAll("tr");
-    const q = (term || "").toLowerCase();
-    rows.forEach(r => {
-      if (r.classList.contains("expand-row")) return;
-      const cell = r.cells[colIndex];
-      const text = cell ? (cell.innerText || cell.textContent || "").toLowerCase() : "";
-      r.style.display = text.indexOf(q) > -1 ? "" : "none";
-      const ex = r.nextElementSibling;
-      if (ex && ex.classList.contains("expand-row")) ex.style.display = r.style.display;
-    });
-  };
-}
-
-/* ================== 스타일(1회) 주입 ================== */
-let _styleInjected = false;
-function injectOnceStyles() {
-  if (_styleInjected) return;
-  _styleInjected = true;
-  const style = document.createElement("style");
-  style.textContent = `
-    /* [증상], [진단 결과] 컬럼 숨김 */
-    #mainTable th:nth-child(8), #mainTable td:nth-child(8),
-    #mainTable th:nth-child(9), #mainTable td:nth-child(9) { display: none !important; }
-
-    .expand-row > td { padding: 12px 16px; background: #f8faff; border-top: 1px solid #e3eaf5; }
-    .detail-wrap { min-height: 200px; }
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: start; }
-    .detail-cell { background: #ffffff; border: 1px solid #e3eaf5; border-radius: 8px; padding: 10px; }
-    .detail-label { display:block; font-weight:700; margin-bottom:6px; }
-    .detail-text { width:100%; min-height:160px; resize:vertical; border:1px solid #ddd; border-radius:6px; padding:8px; font-size:.95rem; color:#000; }
-
-    .photo-box { position: relative; width: 100%; height: 180px; border: 1px dashed #c7d2fe; border-radius: 8px; background: #f9fbff;
-                 overflow: hidden; display: flex; align-items: center; justify-content: center; }
-    .thumb-wrap { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; }
-    .thumb { display:block; width:100%; height:100%; object-fit: cover; border-radius:6px; }
-    .photo-preview { max-width:100%; max-height:100%; object-fit:contain; }
-    .photo-btn { position: absolute; bottom: 10px; right: 10px; border:0; border-radius:6px; padding:8px 12px; font-weight:700; color:#fff;
-                 background: linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
-
-    /* 클릭/편집 가이드 */
-    #mainTable tbody tr:not(.expand-row) td { cursor: pointer; user-select: none; }
-    #mainTable tbody tr:not(.expand-row) td:first-child { cursor: default; user-select: auto; }
-    #mainTable tbody tr:not(.expand-row) input,
-    #mainTable tbody tr:not(.expand-row) select,
-    #mainTable tbody tr:not(.expand-row) textarea,
-    #mainTable tbody tr:not(.expand-row) [contenteditable] { pointer-events: none !important; }
-    #mainTable tbody tr:not(.expand-row) input.rowCheck { pointer-events: auto !important; }
-    #mainTable tbody tr:not(.expand-row) td:nth-child(2) input,
-    #mainTable tbody tr:not(.expand-row) td:nth-child(3) input,
-    #mainTable tbody tr:not(.expand-row) td:nth-child(10) select,
-    #mainTable tbody tr:not(.expand-row) td:nth-child(13) input { pointer-events: auto !important; }
-    #mainTable tbody tr:not(.expand-row) td:nth-child(2),
-    #mainTable tbody tr:not(.expand-row) td:nth-child(3),
-    #mainTable tbody tr:not(.expand-row) td:nth-child(10),
-    #mainTable tbody tr:not(.expand-row) td:nth-child(13) { cursor: default; }
-  `;
-  document.head.appendChild(style);
-}
-
-/* ================== 테이블 클릭(상세열기) ================== */
+/* 테이블 클릭(상세 열고/닫기) - 기존 충돌 없이 유지 */
 (function installRowOpenDelegation() {
   const table = document.getElementById("mainTable");
   if (!table) return;
@@ -316,11 +302,11 @@ function injectOnceStyles() {
   });
 })();
 
-/* ================== 상태 색상 클래스 ================== */
+/* ================== 상태 색상 클래스(기존 유지) ================== */
 const STATUS_CLASS = {
   "접수완료": "row-status-received",
-  "수리 중": "row-status-repairing",
-  "수리중": "row-status-repairing",
+  "수리 중":  "row-status-repairing",
+  "수리중":   "row-status-repairing",
   "무상수리완료": "row-status-free",
   "유상수리완료": "row-status-paid"
 };
@@ -338,7 +324,7 @@ function wireStatusForRow(row) {
   sel.addEventListener("change", () => applyStatusClass(row, sel.value));
 }
 
-/* ================== 정렬 칩(카드 밖) ================== */
+/* ================== 정렬/필터/모달 등 기존 보일러 유지 ================== */
 const sortStates = { receiptDate: 1, shipDate: 1, completeDate: 1 }; // 1:ASC, -1:DESC
 let sortedActive = false;
 const originalOrder = []; // [{tr, ex}]
@@ -411,6 +397,20 @@ function resetSort() {
   });
   resetSortLabels(); sortedActive = false;
 }
+export function exposeFilter() {
+  window.filterTable = (colIndex, term) => {
+    const rows = tbody().querySelectorAll("tr");
+    const q = (term || "").toLowerCase();
+    rows.forEach(r => {
+      if (r.classList.contains("expand-row")) return;
+      const cell = r.cells[colIndex];
+      const text = cell ? (cell.innerText || cell.textContent || "").toLowerCase() : "";
+      r.style.display = text.indexOf(q) > -1 ? "" : "none";
+      const ex = r.nextElementSibling;
+      if (ex && ex.classList.contains("expand-row")) ex.style.display = r.style.display;
+    });
+  };
+}
 function wireSortTools() {
   observeForOrder();
   const tools = document.getElementById("sortTools");
@@ -422,29 +422,13 @@ function wireSortTools() {
   });
 }
 
-/* ================== 모달 UI ================== */
+/* 모달: 기존 입력값을 기반으로 새 행 생성 */
 function openModal() {
   const md = document.getElementById("registerModal");
   if (!md) return;
   md.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
 
-  ["mReceipt","mCompany","mPartNo","mPartName","mSpec","mSymptom","mRepairer","mContact","mNote"]
-    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
-  const today = new Date(); const p = n=>String(n).padStart(2,"0");
-  const dstr = `${today.getFullYear()}-${p(today.getMonth()+1)}-${p(today.getDate())}`;
-  const rcv = document.getElementById("mReceipt"); if (rcv) rcv.value = dstr;
-
-  md.querySelector(".modal-content")?.focus();
-}
-function closeModal() {
-  const md = document.getElementById("registerModal");
-  if (!md) return;
-  md.setAttribute("aria-hidden", "true");
-  document.body.style.overflow = "";
-}
-function wireModal() {
-  document.getElementById("btnOpen")?.addEventListener("click", openModal);
   document.getElementById("mOk")?.addEventListener("click", async () => {
     const pre = {
       receipt:  document.getElementById("mReceipt")?.value || "",
@@ -459,14 +443,23 @@ function wireModal() {
     };
     await addRowDoc(pre);
     closeModal();
-  });
+  }, { once: true });
+}
+function closeModal() {
+  const md = document.getElementById("registerModal");
+  if (!md) return;
+  md.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+function wireModal() {
+  document.getElementById("btnOpen")?.addEventListener("click", openModal);
   document.getElementById("mCancel")?.addEventListener("click", closeModal);
   const md = document.getElementById("registerModal");
   md?.addEventListener("click", (e) => { if (e.target === md) closeModal(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 }
 
-/* ================== Import/Export FAB (CSV 내보내기 제거) ================== */
+/* ================== Import/Export FAB (기존 유지) ================== */
 export function createImportExportFab(exportXLSX, handleImportFile) {
   if (document.getElementById("ieFab")) return;
 
@@ -483,7 +476,7 @@ export function createImportExportFab(exportXLSX, handleImportFile) {
     </style>
     <button class="btn" id="btnExport">엑셀 내보내기</button>
     <button class="btn" id="btnImport">가져오기</button>
-    <input type="file" id="ieHiddenInput" accept=".xlsx,.xls,.csv" />
+    <input type="file" id="ieHiddenInput" accept=".xlsx,xls,csv" />
   `;
   document.body.appendChild(fab);
 
@@ -496,6 +489,9 @@ export function createImportExportFab(exportXLSX, handleImportFile) {
 
 /* ================== 초기화 합본 ================== */
 export function setupUI() {
+  injectOnceStyles();
+  ensureHiddenSpecialHeader(); // ✅ 헤더에 숨김 [특채] 보장
+
   wireCheckAll();
   exposeFilter();
   wireSortTools();
@@ -507,4 +503,12 @@ export function setupUI() {
       if (n.nodeType === 1 && n.tagName === "TR") wireStatusForRow(n);
     }));
   }).observe(tbody(), { childList: true });
+
+  // 테이블 밖 클릭 시 열림 닫기 + 저장
+  document.addEventListener("click", async (e) => {
+    if (!openTr) return;
+    const mainTable = document.getElementById("mainTable");
+    if (mainTable && mainTable.contains(e.target)) return;
+    await closeExpand(openTr, { save: true });
+  });
 }
