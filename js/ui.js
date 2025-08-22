@@ -45,7 +45,8 @@ function injectOnceStyles() {
     .photo-box { position: relative; width: 100%; height: 180px; border: 1px dashed #c7d2fe; border-radius: 8px; background: #f9fbff;
                  overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .thumb-wrap { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; }
-    .thumb { display:block; width:100%; height:100%; object-fit: cover; border-radius:6px; }
+    /* ⬇️ 중요 변경: 업로드 이미지를 확대/크롭하지 않고 원본 비율로 표시 */
+    .thumb { display:block; max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; border-radius:6px; }
     .photo-preview { max-width:100%; max-height:100%; object-fit:contain; }
     .photo-btn { position: absolute; bottom: 10px; right: 10px; border:0; border-radius:6px; padding:8px 12px; font-weight:700; color:#fff;
                  background: linear-gradient(135deg,#2196F3,#1976D2); cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
@@ -249,18 +250,17 @@ function buildExpandRow(tr) {
     const f = e.target.files?.[0];
     if (!f) return;
 
-    // 미리보기: 로컬 URL로 먼저 표시
+    // 미리보기: 로컬 URL로 먼저 표시 (원본 비율 그대로)
     const localUrl = URL.createObjectURL(f);
     img.src = localUrl; img.style.display = "block";
 
     try {
-      const url = await uploadRowPhoto(id, f); // 내부에서 1MB 이하로 압축 업로드
+      const url = await uploadRowPhoto(id, f); // 내부에서 1MB 이하로 압축 업로드(이 로직은 유지)
       img.src = url;                       // 실제 다운로드 URL로 교체
-      tr.dataset.photoUrl = url;           // 🔑 현재 행의 최신 URL 보관(삭제 시 사용)
+      tr.dataset.photoUrl = url;           // 삭제 시 사용
     } catch (err) {
       alert("사진 업로드 실패. 다시 시도해 주세요.");
       console.error(err);
-      // 실패 시 미리보기 숨김
       img.removeAttribute("src"); img.style.display = "none";
     } finally {
       URL.revokeObjectURL(localUrl);
