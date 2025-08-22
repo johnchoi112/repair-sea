@@ -1,5 +1,8 @@
 // js/ui.js
-import { schemaKeys, updateField, updateFields, uploadRowPhoto, addRowDoc } from "./data.js";
+import {
+  schemaKeys, updateField, updateFields,
+  uploadRowPhoto, addRowDoc, deleteRowPhoto
+} from "./data.js";
 import { debounce } from "./utils.js";
 
 const tbody = () => document.getElementById("tableBody");
@@ -25,6 +28,14 @@ function injectOnceStyles() {
 
     .expand-row > td { padding: 12px 16px; background: #f8faff; border-top: 1px solid #e3eaf5; }
     .detail-wrap { min-height: 200px; }
+
+    /* 상단 헤더(좌: 상세, 우: 삭제) */
+    .detail-head { display:flex; align-items:center; justify-content:space-between; margin: 4px 0 10px; }
+    .detail-title { font-size: 1.05rem; font-weight: 800; color: #2c3e50; }
+    .detail-del-btn { border: 0; border-radius: 8px; padding: 8px 12px; font-weight: 800; color:#fff;
+                       background: linear-gradient(135deg,#ff4d4f,#d9363e); cursor:pointer;
+                       box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+
     /* ✅ 자동 맞춤(균등 분할) 4칸 */
     .detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
     .detail-cell { background: #ffffff; border: 1px solid #e3eaf5; border-radius: 8px; padding: 10px; }
@@ -140,7 +151,7 @@ export function updateRow(doc) {
   if (ex && ex.classList.contains("expand-row")) {
     const sInput = ex.querySelector(".detail-symptom");
     const dInput = ex.querySelector(".detail-diagnosis");
-    const pInput = ex.querySelector(".detail-special"); // ✅
+    const pInput = ex.querySelector(".detail-special");
     if (sInput && doc.symptom != null) sInput.value = doc.symptom || "";
     if (dInput && doc.diagnosis != null) dInput.value = doc.diagnosis || "";
     if (pInput && doc.special  != null) pInput.value = doc.special  || "";
@@ -191,6 +202,11 @@ function buildExpandRow(tr) {
   td.colSpan = getColspan();
   td.innerHTML = `
     <div class="detail-wrap">
+      <div class="detail-head">
+        <span class="detail-title">상세</span>
+        <!-- ✅ 삭제 버튼(오른쪽) -->
+        <button type="button" class="detail-del-btn">삭제</button>
+      </div>
       <div class="detail-grid">
         <!-- 사진 -->
         <div class="detail-cell">
@@ -227,21 +243,41 @@ function buildExpandRow(tr) {
   const btn = td.querySelector(".photo-btn");
   const file = td.querySelector(".photo-file");
   const img = td.querySelector(".thumb");
+
   btn.addEventListener("click", () => file.click());
   file.addEventListener("change", async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
+
+    // 미리보기: 로컬 URL로 먼저 표시
     const localUrl = URL.createObjectURL(f);
     img.src = localUrl; img.style.display = "block";
+
     try {
-      const url = await uploadRowPhoto(id, f);
-      img.src = url;
+      const url = await uploadRowPhoto(id, f); // 내부에서 1MB 이하로 압축 업로드
+      img.src = url;                       // 실제 다운로드 URL로 교체
+      tr.dataset.photoUrl = url;           // 🔑 현재 행의 최신 URL 보관(삭제 시 사용)
     } catch (err) {
       alert("사진 업로드 실패. 다시 시도해 주세요.");
       console.error(err);
+      // 실패 시 미리보기 숨김
+      img.removeAttribute("src"); img.style.display = "none";
     } finally {
       URL.revokeObjectURL(localUrl);
       e.target.value = "";
+    }
+  });
+
+  // ✅ 사진 삭제 (상세 상단의 [삭제] 버튼)
+  const delBtn = td.querySelector(".detail-del-btn");
+  delBtn.addEventListener("click", async () => {
+    try {
+      await deleteRowPhoto(id, tr.dataset.photoUrl || "");
+      img.removeAttribute("src"); img.style.display = "none";
+      tr.dataset.photoUrl = "";
+    } catch (err) {
+      console.error(err);
+      alert("사진 삭제 중 오류가 발생했습니다.");
     }
   });
 
@@ -263,7 +299,7 @@ async function closeExpand(tr, { save = true } = {}) {
       const sym = ex.querySelector(".detail-symptom")?.value || "";
       const dia = ex.querySelector(".detail-diagnosis")?.value || "";
       const spc = ex.querySelector(".detail-special")?.value || "";
-      await updateFields(tr.dataset.id, { symptom: sym, diagnosis: dia, special: spc }); // ✅
+      await updateFields(tr.dataset.id, { symptom: sym, diagnosis: dia, special: spc });
       if (tr.cells[7])  tr.cells[7].innerText = sym;
       if (tr.cells[8])  tr.cells[8].innerText = dia;
       const spCell = tr.querySelector('td[data-key="special"]');
@@ -327,7 +363,7 @@ function wireStatusForRow(row) {
 /* ================== 정렬/필터/모달 등 기존 보일러 유지 ================== */
 const sortStates = { receiptDate: 1, shipDate: 1, completeDate: 1 }; // 1:ASC, -1:DESC
 let sortedActive = false;
-const originalOrder = []; // [{tr, ex}]
+const originalOrder = [];
 const idSet = new Set();
 
 function captureOriginalOrder(tr) {
@@ -510,5 +546,17 @@ export function setupUI() {
     const mainTable = document.getElementById("mainTable");
     if (mainTable && mainTable.contains(e.target)) return;
     await closeExpand(openTr, { save: true });
+  });
+
+  // Storage 삭제/업로드 브로드캐스트에 반응(데이터셋 동기화 보조)
+  window.addEventListener("photo:uploaded", (ev) => {
+    const { id, url } = ev.detail || {};
+    const tr = tbody()?.querySelector(`tr[data-id="${id}"]`);
+    if (tr) tr.dataset.photoUrl = url || "";
+  });
+  window.addEventListener("photo:deleted", (ev) => {
+    const { id } = ev.detail || {};
+    const tr = tbody()?.querySelector(`tr[data-id="${id}"]`);
+    if (tr) tr.dataset.photoUrl = "";
   });
 }
